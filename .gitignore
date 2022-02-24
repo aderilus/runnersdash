@@ -1,0 +1,6 @@
+*.zip
+*.csv
+*.db
+*.log
+.DS_Store
+.DS_Store?
