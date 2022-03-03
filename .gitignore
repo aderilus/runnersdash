@@ -4,6 +4,7 @@
 *.log
 .DS_Store
 .DS_Store?
+.vscode/
 apple_health_export/
 __pycache__/
 data/
