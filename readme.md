@@ -14,9 +14,11 @@ Clone this repository under your chosen directory
 1. Under the Health app settings (click on your profile picture), there will be a link to 'Export All Health Data'. This will download the file `export.zip` to your device. 
 2. Move this file to the same directory you cloned this repository to and open it to extract. This will create a new folder called `apple_health_export` where all your health data resides.
 3. To run `extractapplehealth.py`:
-    a. This assumes that `export.zip` has been extracted in the same directory. In the terminal, change to the local runnersdash directory and run
-    > python extractapplehealth.py
-    b. Assuming the contents of `export.zip` have been extracted somewhere else, in the local directory, run
-    > python extractapplehealth.py /path/to/export.xml
 
-%% TO-DO: Add a list of dependencies %%
+    a. This assumes that `export.zip` has been extracted in the same directory. In the terminal, change to the local runnersdash directory and run
+    > $ python extractapplehealth.py
+
+    b. Assuming the contents of `export.zip` have been extracted somewhere else, in the local directory, run
+    > $ python extractapplehealth.py /path/to/export.xml
+
+<!--- TO-DO: Add a list of dependencies --->
