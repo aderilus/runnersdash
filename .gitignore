@@ -5,3 +5,5 @@
 .DS_Store
 .DS_Store?
 apple_health_export/
+__pycache__/
+data/
