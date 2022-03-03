@@ -1,6 +1,8 @@
 """ extractapplehealth.py: Extracts Apple Health data from
-                           `export.xml` exported from the Health app, 
+                           `export.xml` exported from the Health app,
                            into a database.
+
+Note: Last tested on Dec. 2021 Apple Health data.
 """
 
 __version__ = '1.2'
@@ -56,35 +58,45 @@ class AppleHealthExtraction(object):
         self.exportdatetime = datetime.strptime(self.exportdate, "%Y-%m-%d %H:%M:%S %z")
         self.datestring = self.exportdatetime.strftime("%Y%m%d")
 
-        # SQL database file name
+        # Database file name
         self.db_name = os.path.join(os.getcwd(), "data/", self.datestring + '_applehealth.db')
 
     def get_elements(self):
-
-        self.listoftags = [child.tag for child in self.root.iter()]  # Get tags of all nodes
+        """ Helper function for extract_data().
+        Returns a list of the tags of nodes to extract.
+        """
+        # Get tags of all nodes
+        self.listoftags = [child.tag for child in self.root.iter()]
         self.uniquetags = np.unique(np.array(self.listoftags))  # List of unique tags
         # Remove certain data types from extraction list
         self.uniquetags = np.setdiff1d(self.uniquetags, np.array(self.exclude))
 
         return self.uniquetags
 
-    def extract_data(self):
-        """
-        """
-        # Get list of elements
-        elements_to_extract = self.get_elements()
-
-        for elem in elements_to_extract:
-            self.extract_to_table(elem)
-
-        # Timer stats
-        self.program_end_time = time.time()
-        self.total_elapsed_time = self.program_end_time - self.program_start_time
-
     def extract_to_table(self, tag):
+        """ Helper function for extract_data().
+
+        Forms a table out of the attributes of nodes with tag = 'tag'
+        within the ElementTree object.
+
+        Example tags found in raw Apple Health export:
+            - Record     - Workout
+            - Me         - ActivitySummary
+
+        The resulting table is stored under a database .db file, the name of
+        which is specified by `self.db_name`.
+
+        Note: If tag is 'Record' or 'Workout' (see global variable
+        `CREATE_SUBTABLES_FOR`), this function will create tables based on
+        values of a certain column (`TYPE_COL`) of the parent table.
+
+            Example: Under table 'Workout', there is a column labeled
+                     'workoutActivityType' with an example value of
+                     'HKWorkoutActivityTypeRunning'. The table 'Running'
+                     will then be created from rows in 'Record' with
+                     'workoutActivityType' = 'HKWorkoutActivityTypeRunning'.
         """
-        """
-        # Timer
+        # Start Timer
         start_time = time.time()
 
         # Extract column names
@@ -105,7 +117,7 @@ class AppleHealthExtraction(object):
             # Create table
             db.create_table(table_name=tag, col_names=placeholder_cols)
 
-            self.tablelist.append(tag)  # Append to table list
+            self.tablelist.append(tag)
             if self.verbose:
                 print("Extracting {name}......".format(name=tag), end=' ', flush=True)
 
@@ -115,25 +127,52 @@ class AppleHealthExtraction(object):
             # Get number of entries for this element/tag
             self.num_nodes_by_elem[tag] = db.get_table_count(tag)
 
-            # If element is of type ('tag') 'Record' or 'Workout'
+            # If element is of type ('tag') 'Record' or 'Workout',
+            # create subtables derived from that original table.
             if tag in CREATE_SUBTABLES_FOR:
                 new_tables = db.create_tables_from_column(table_name=tag,
                                                           col_name=TYPE_COL[tag],
                                                           prefixes=PREFIX_TO_STRIP[tag])
 
-                self.tablelist += new_tables  # Append newly created tables to table list
+                # Append newly created tables to table list
+                self.tablelist += new_tables
 
                 for tb in new_tables:
                     self.num_nodes_by_elem[tb] = db.get_table_count(table_name=tb)
                     self.time_per_elem[tb] = -9999.99
 
+        # End Timer
         end_time = time.time()
         self.time_per_elem[tag] = end_time - start_time
 
         if self.verbose:
             print("Elapsed time was %.5g seconds" % self.time_per_elem[tag], flush=True)
 
+    def extract_data(self):
+        """ Extracts to various tables information from nodes of the
+        ElementTree with matching tags specified by `get_elements` function.
+
+        The resulting tables are stored under a database .db file, the name of
+        which is specified by the class variable `self.db_name`.
+        """
+        # Get list of elements
+        elements_to_extract = self.get_elements()
+
+        for elem in elements_to_extract:
+            self.extract_to_table(elem)
+
+        # Timer stats
+        self.program_end_time = time.time()
+        self.total_elapsed_time = self.program_end_time - self.program_start_time
+
     def print_results(self):
+        """ Reports extraction results such as:
+            - Total time elapsed extracting a specific tag
+            - Number of entries inside a table
+            - File name of resulting database.
+
+        Writes report to a CSV file under subdirectory 'reports/'.
+        """
         print("\nTotal time elapsed: {ttime}".format(ttime=self.total_elapsed_time))
         print("There are {n} tables inside {database}".format(n=len(self.tablelist), database=self.db_name))
 
