@@ -15,12 +15,21 @@ ver. 1.2 (02 Mar. 2022):
     - layout.py
     - py files inside apps/
 
+ver. 1.3 (04 Mar. 2022):
+- Changed how it takes in data:
+    (-) Previously: Passed in 1 argument, the path to the daily
+                    aggregate CSV file.
+    (+) Change: Pass in a date formatted as string "YYYYmmdd",
+                indicating the date of Health database to read.
+- Note: User no longer has to run preparedatasets.py manually.
+        This script reads the database file and runs it
+        instead.
+
 Known issue(s):
 - Takes in a CSV file that's an output of preparedatasets.py,
   but which file does it need? The daily aggregate? Weekly?
   Monthly?
 - Is get_weekly_data() method still necessary?
-
 
 """
 
@@ -47,19 +56,18 @@ from threading import Timer
 from datetime import datetime, date
 
 
-# ========== LOAD CSV ========== #
-def preprocess_data(csvfile):
-    """ Read in a CSV to a DataFrame and format the latter.
-    """
-    # Read CSV file
-    data = pd.read_csv(csvfile, index_col=0)
+# ========== LOAD DATA ========== #
 
-    # Format as type datetime
-    data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
-    data["runStartTime"] = pd.to_datetime(data["runStartTime"], yearfirst=True,
-                                          format="%Y-%m-%d %H:%M:%S%z")
-    data["runEndTime"] = pd.to_datetime(data["runEndTime"], yearfirst=True,
-                                        format="%Y-%m-%d %H:%M:%S %z")
+def format_dataset(data):
+    """ Format the given DataFrame.
+    """
+
+    # # Format as type datetime
+    # data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
+    # data["runStartTime"] = pd.to_datetime(data["runStartTime"], yearfirst=True,
+    #                                       format="%Y-%m-%d %H:%M:%S%z")
+    # data["runEndTime"] = pd.to_datetime(data["runEndTime"], yearfirst=True,
+    #                                     format="%Y-%m-%d %H:%M:%S %z")
 
     # Drop rows where date precedes 12/2020
     data.drop(data[pd.DatetimeIndex(data["Date"]).year < 2020].index,
@@ -232,20 +240,24 @@ def generate_dash_server(toggle_debug=False):
 if __name__ == '__main__':
 
     if len(sys.argv) != 2:
-        print("USAGE: python runningstats.py /path/to/csv", file=sys.stderr)
+        print("USAGE: python runningstats.py YYYYmmdd", file=sys.stderr)
         sys.exit(1)
 
-    CSV_FILE = sys.argv[1]
+    datestring = sys.argv[1]
+    db_file = "{dt}_applehealth.db".format(dt=datestring)
+    db_path = os.path.join("data/", db_file)
 
-    # If csv_file can't be found, run processdatabase and create file
-    if not os.path.isfile(CSV_FILE):
-        db_path = "{dt}_applehealth.db".format(dt=sys.argv[1])
-        s = preparedatasets.DatasetPrep(db_path, verbose=True, testing=False)
-        s.load_database()
-        s.get_all_aggregates()
-        s.get_resampled_data('Running', on='Date', write_to_file=True)
+    if not os.path.exists(db_path):
+        print("The database {db} cannot be found".format(dt=db_file), file=sys.stderr)
+        sys.exit(1)
 
-    dataframe = preprocess_data(CSV_FILE)
+    PreppedData = preparedatasets.DatasetPrep(db_path, verbose=True, testing=False)
+    PreppedData.load_database()
+    daily, weekly, monthly = PreppedData.get_all_aggregates()
+    run_resampled = PreppedData.get_resampled_data('Running', on='Date', write_to_file=True)
+
+    # For now, we only work with the daily dataset
+    dataframe = format_dataset(daily)
     numeric_cols = get_numeric_colnames(dataframe)
 
     # # Create instance of a Dash class
