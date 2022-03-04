@@ -307,8 +307,8 @@ class DatasetPrep(object):
         """ Formats the given DataFrames stored inside a dictionary.
 
         Note: As of Dec. 2021 data, some entries under the 'value' column of
-        table 'MenstrualFlow' have a typo: 'HKCategoryValueMensturalFlow'
-        instead of 'HKCategoryValueMenstrualFlow'.
+        table 'MenstrualFlow' have a typo: 'HKCategoryValueMensturalFlowNone'
+        instead of 'HKCategoryValueMenstrualFlowNone'.
 
         Args:
             df_dict (dict): Dictionary of DataFrames.
@@ -465,7 +465,6 @@ class DatasetPrep(object):
         Returns:
             Tuple of 2 DataFrames, representing weekly and monthly
             aggregates respectively.
-
         """
 
         cols_to_drop = ['runStartTime', 'runEndTime']
@@ -551,6 +550,9 @@ class DatasetPrep(object):
                       Default is 'Date'.
             write_to_file (bool): Toggle writing resulting resampled data to
                                   CSV in data sub-directory.
+
+        Returns:
+            Resampled DataFrame
         """
 
         data = self.formatted_data[tablename]

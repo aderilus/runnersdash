@@ -19,6 +19,8 @@ Known issue(s):
 - Takes in a CSV file that's an output of preparedatasets.py,
   but which file does it need? The daily aggregate? Weekly?
   Monthly?
+- Is get_weekly_data() method still necessary?
+
 
 """
 
