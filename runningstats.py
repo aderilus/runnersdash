@@ -7,13 +7,6 @@ Modified 02 Mar. 2022
 
 ver. 1.2 (02 Mar. 2022):
 - Implemented linting to clean up code.
-- In future versions, the routines in this file will be
-  distributed between:
-    - app.py
-    - callbacks.py
-    - index.py
-    - layout.py
-    - py files inside apps/
 
 ver. 1.3 (04 Mar. 2022):
 - Changed how it takes in data:
@@ -24,6 +17,13 @@ ver. 1.3 (04 Mar. 2022):
 - Note: User no longer has to run preparedatasets.py manually.
         This script reads the database file and runs it
         instead.
+- In future versions, the routines in this file will be
+  distributed between:
+    - app.py
+    - callbacks.py
+    - index.py
+    - layout.py
+    - py files inside apps/
 
 Known issue(s):
 - Is get_weekly_data() method still necessary?
