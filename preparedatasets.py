@@ -173,6 +173,7 @@ def group_by_date(dataframe, aggregation_method, datetimecol):
     Returns:
         aggregated (pd.DataFrame): Resulting DataFrame grouped by the date.
     """
+
     aggregated = dataframe.groupby(dataframe[datetimecol].dt.date).agg(aggregation_method).reset_index()
 
     return aggregated
@@ -220,7 +221,9 @@ class DatasetPrep(object):
 
     def get_formatted_data(self):
         return self.formatted_data
+    # --- END ACCESSORS --- #
 
+    # --- EXTRACT & LOAD --- #
     def extract_to_dataframes(self, database_file, tables_to_get):
         """ Given the path to a database and a list of the table names to
             import, outputs a dictionary of the corresponding DataFrames.
@@ -249,90 +252,18 @@ class DatasetPrep(object):
 
         self.extracted_data = imported
         self.formatted_data = formatted
-
-    def get_resampled_data(self, tablename, on='Date',
-                           write_to_file=True):
-        """ Resample a table by day. Fill missing values with NaN.
-
-        Note: For now, its main use is to prepare a running heatmap.
-
-        Args:
-            tablename (str): Name of the table to resample.
-
-        Kwargs:
-            on (str): The column name containing datetime values.
-                      Default is 'Date'.
-            write_to_file (bool): Toggle writing resulting resampled data to
-                                  CSV in data sub-directory.
-
-        """
-
-        data = self.formatted_data[tablename]
-        data[on] = pd.to_datetime(data[on], format="%Y-%m-%d")
-
-        # Group by day to remove extraneous date values
-        aggmethod = get_aggregation_method(list(data.columns))
-        daily_data = group_by_date(data, aggmethod, datetimecol=on)
-
-        # Resample
-        df = daily_data.set_index(on)
-        df.index = pd.to_datetime(df.index)
-        df = df.resample("D").asfreq()
-
-        # Add average pace and additional running stats
-        if tablename == 'Running':
-            self.add_more_runstats(df)
-
-        # Add Year, Month, Day column
-        df['Year'] = df.index.year
-        df['Month'] = df.index.month
-        df['Day'] = df.index.day
-
-        if write_to_file:
-            namebase = "{date}_{name}_resampledDaily.csv"
-            file_name = namebase.format(date=self.exportDate, name=tablename)
-            csvpath = os.path.join(os.getcwd(), "data", file_name)
-            write_to_csv(df, csvpath, self.verbose)
-
-        return df
-
-    # --- ADD MORE RUN STATS --- #
-    def add_more_runstats(self, dataframe):
-        """ Adds additional running stats to given dataframe, including
-            average pace and run type.
-        """
-
-        cols = list(dataframe.columns)
-
-        matches_duration = [find_substr_in_list("Avg. Duration", cols, self.testing),
-                            find_substr_in_list("Total Duration", cols, self.testing)]
-        matches_distance = [find_substr_in_list("Avg. Distance", cols, self.testing),
-                            find_substr_in_list("Total Distance", cols, self.testing)]
-
-        avg_duration_colname = next(item for item in matches_duration if item is not None)
-        avg_distance_colname = next(item for item in matches_distance if item is not None)
-
-        duration_unit = get_unit_from_string(avg_duration_colname)
-        distance_unit = get_unit_from_string(avg_distance_colname)
-
-        avg_pace_colname = "Avg. Pace ({unit})".format(unit=duration_unit + '/' + distance_unit)
-        run_type_colname = "Run Type"
-
-        dataframe[avg_pace_colname] = dataframe[avg_duration_colname] / dataframe[avg_distance_colname]
-        dataframe[run_type_colname] = dataframe[avg_duration_colname].map(get_run_type)
-
-    # --- END RUN STATS --- #
+    # --- END EXTRACT & LOAD --- #
 
     # --- FORMAT TABLES --- #
     def rename_column_with_unit(self, dframe, tablename, column_mapper):
         """ Helper function for format_dataframes().
             Concatenates the unit onto each column name in value_cols.
 
-            Examples:
-                tablename = 'Running': 'totalDistance' renamed to 'totalDistance (km)'
-                tablename = 'VO2Max': 'value' is renamed to 'VO2Max ([unit])'
-                tablename = 'BodyMass': 'value' is renamed to 'Weight (lb)'
-                tablename = 'RestingHeartRate': 'value' renamed to 'Avg. Resting HR (bpm)'
+        Examples:
+            tablename = 'Running': 'totalDistance' renamed to 'totalDistance (km)'
+            tablename = 'VO2Max': 'value' --> 'VO2Max ([unit])'
+            tablename = 'BodyMass': 'value' --> 'Weight (lb)'
+            tablename = 'RestingHeartRate': 'value' --> 'Avg. Resting HR (bpm)'
 
         Args:
             dframe (pd.DataFrame): DataFrame with columns to rename.
@@ -375,9 +306,9 @@ class DatasetPrep(object):
     def format_dataframes(self, df_dict):
         """ Formats the given DataFrames stored inside a dictionary.
 
-        Note: As of Dec. 2021 data, some entries under the 'value'
-        column of table 'MenstrualFlow' have a typo:
-        'HKCategoryValueMensturalFlow' instead of 'HKCategoryValueMenstrualFlow'.
+        Note: As of Dec. 2021 data, some entries under the 'value' column of
+        table 'MenstrualFlow' have a typo: 'HKCategoryValueMensturalFlow'
+        instead of 'HKCategoryValueMenstrualFlow'.
 
         Args:
             df_dict (dict): Dictionary of DataFrames.
@@ -434,7 +365,8 @@ class DatasetPrep(object):
 
             # Rename 'startDate' and 'endDate' columns for 'Running'
             if table_name == "Running":
-                newtable.rename({'startDate': 'runStartTime', 'endDate': 'runEndTime'}, axis=1, inplace=True)
+                newtable.rename({'startDate': 'runStartTime', 'endDate': 'runEndTime'},
+                                axis=1, inplace=True)
 
             # Store column names
             new_cols = list(newtable.columns)
@@ -447,7 +379,7 @@ class DatasetPrep(object):
         return updated
     # --- END FORMAT --- #
 
-    # --- JOIN TABLES --- #
+    # --- JOIN METHOD(S) --- #
     def join_all_tables(self, dfdict):
         """ Merge all tables.
         """
@@ -461,6 +393,30 @@ class DatasetPrep(object):
         return joined
     # --- END JOIN --- #
 
+    def add_more_runstats(self, dataframe):
+        """ Adds additional running stats to given dataframe, including
+            average pace and run type.
+        """
+
+        cols = list(dataframe.columns)
+
+        matches_duration = [find_substr_in_list("Avg. Duration", cols, self.testing),
+                            find_substr_in_list("Total Duration", cols, self.testing)]
+        matches_distance = [find_substr_in_list("Avg. Distance", cols, self.testing),
+                            find_substr_in_list("Total Distance", cols, self.testing)]
+
+        avg_duration_colname = next(item for item in matches_duration if item is not None)
+        avg_distance_colname = next(item for item in matches_distance if item is not None)
+
+        duration_unit = get_unit_from_string(avg_duration_colname)
+        distance_unit = get_unit_from_string(avg_distance_colname)
+
+        avg_pace_colname = "Avg. Pace ({unit})".format(unit=duration_unit + '/' + distance_unit)
+        run_type_colname = "Run Type"
+
+        dataframe[avg_pace_colname] = dataframe[avg_duration_colname] / dataframe[avg_distance_colname]
+        dataframe[run_type_colname] = dataframe[avg_duration_colname].map(get_run_type)
+
     # --- AGGREGATE BY DATE --- #
     def get_daily_aggregate(self, df_dict, export_date):
         """ Group DataFrame rows by date. Each row will have a distinct date.
@@ -469,7 +425,8 @@ class DatasetPrep(object):
 
         Args:
             db_path (str): File path of Apple Health database (.db) file.
-            export_date (str): Date formatted as "YYYYmmdd", used for naming resulting CSV file.
+            export_date (str): Date formatted as "YYYYmmdd", used for naming
+                               resulting CSV file.
 
         Returns:
             full_aggregate (pd.DataFrame):
@@ -580,6 +537,50 @@ class DatasetPrep(object):
         weekly_agg, monthly_agg = self.get_weekly_monthly_aggregate(daily_agg, self.exportDate)
 
         return daily_agg, weekly_agg, monthly_agg
+
+    def get_resampled_data(self, tablename, on='Date', write_to_file=True):
+        """ Resample a table by day. Fills missing values with NaN.
+
+        Note: For now, its main use is to prepare a running heatmap.
+
+        Args:
+            tablename (str): Name of the table to resample.
+
+        Kwargs:
+            on (str): The column name containing datetime values.
+                      Default is 'Date'.
+            write_to_file (bool): Toggle writing resulting resampled data to
+                                  CSV in data sub-directory.
+        """
+
+        data = self.formatted_data[tablename]
+        data[on] = pd.to_datetime(data[on], format="%Y-%m-%d")
+
+        # Group by day to remove extraneous date values
+        aggmethod = get_aggregation_method(list(data.columns))
+        daily_data = group_by_date(data, aggmethod, datetimecol=on)
+
+        # Resample
+        df = daily_data.set_index(on)
+        df.index = pd.to_datetime(df.index)
+        df = df.resample("D").asfreq()
+
+        # Add average pace and additional running stats
+        if tablename == 'Running':
+            self.add_more_runstats(df)
+
+        # Add Year, Month, Day column
+        df['Year'] = df.index.year
+        df['Month'] = df.index.month
+        df['Day'] = df.index.day
+
+        if write_to_file:
+            namebase = "{date}_{name}_resampledDaily.csv"
+            file_name = namebase.format(date=self.exportDate, name=tablename)
+            csvpath = os.path.join(os.getcwd(), "data", file_name)
+            write_to_csv(df, csvpath, self.verbose)
+
+        return df
     # --- END AGGREGATE --- #
 
 
