@@ -19,12 +19,12 @@ git clone https://github.com/nadinetab/runnersdash.git
 
     a. This assumes that `export.zip` has been extracted in the same directory. In the terminal, change to the local runnersdash directory and run
     ```
-    $ python extractapplehealth.py
+    python extractapplehealth.py
     ```
 
     b. Assuming the contents of `export.zip` have been extracted somewhere else, in the local directory, run
     ```
-    $ python extractapplehealth.py /path/to/export.xml
+    python extractapplehealth.py /path/to/export.xml
     ```
 
 <!--- TO-DO: Add a list of dependencies --->
