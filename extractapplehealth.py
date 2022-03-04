@@ -2,7 +2,7 @@
                            `export.xml` exported from the Health app,
                            into a database.
 
-Note: Last tested on Dec. 2021 Apple Health data.
+Note: Last tested on Mar. 2022 Apple Health data.
 """
 
 __version__ = '1.2'
@@ -59,7 +59,10 @@ class AppleHealthExtraction(object):
         self.datestring = self.exportdatetime.strftime("%Y%m%d")
 
         # Database file name
-        self.db_name = os.path.join(os.getcwd(), "data/", self.datestring + '_applehealth.db')
+        dbpath = os.path.join(os.getcwd(), "data/")
+        if not os.path.exists(dbpath):
+            os.makedirs(dbpath)
+        self.db_name = os.path.join(dbpath, self.datestring + '_applehealth.db')
 
     def get_elements(self):
         """ Helper function for extract_data().
@@ -167,20 +170,23 @@ class AppleHealthExtraction(object):
 
     def print_results(self):
         """ Reports extraction results such as:
-            - Total time elapsed extracting a specific tag
+            - Total time elapsed (s) extracting a specific tag
             - Number of entries inside a table
             - File name of resulting database.
 
         Writes report to a CSV file under subdirectory 'reports/'.
         """
-        print("\nTotal time elapsed: {ttime}".format(ttime=self.total_elapsed_time))
+        print("\nTotal time elapsed: {ttime} seconds\n".format(ttime=self.total_elapsed_time))
         print("There are {n} tables inside {database}".format(n=len(self.tablelist), database=self.db_name))
 
         for tag, count in self.num_nodes_by_elem.items():
             print("There are {m} entries for table {tablename}".format(m=count, tablename=tag), flush=True)
 
         # Write to file
-        report_name = os.path.join(os.getcwd(), "reports", self.datestring + '_report.csv')
+        reportpath = os.path.join(os.getcwd(), "reports/")
+        if not os.path.exists(reportpath):
+            os.makedirs(reportpath)
+        report_name = os.path.join(reportpath, self.datestring + '_report.csv')
         with open(report_name, 'w') as report:
             print("\nWriting to file {name}...... ".format(name=report_name), flush=True)
             writer = csv.writer(report, delimiter=",")
