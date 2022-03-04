@@ -125,7 +125,6 @@ def join_two_tables(df_left, df_right, join_left, join_right):
     resultant.drop([join_left, join_right], axis=1, inplace=True)
     resultant.rename({combined_column: join_left}, axis=1, inplace=True)
     resultant[join_left] = pd.to_datetime(resultant[join_left], format='%Y-%m-%d')
-    # resultant.astype({join_left: 'datetime64[ns]'})
 
     # Sort by new Date column
     resultant.sort_values(join_left, axis=0, inplace=True, ignore_index=True)
@@ -211,8 +210,6 @@ class DatasetPrep(object):
                              }
 
         self.daily_colnames = {}
-        # self.original_datasets = self.extract_to_dataframes(self.dbPath, self.tableNames)
-        # self.formatted_datasets = self.format_dataframes(self.original_datasets)
 
     # --- ACCESSOR METHODS ---- #
     def get_export_date(self):
@@ -430,9 +427,6 @@ class DatasetPrep(object):
             else:
                 cols_to_drop.extend(['type', 'startDate', 'endDate'])
 
-            # if table_name == "MenstrualFlow":
-            #     cols_to_drop.append("value")
-
             newtable.drop(cols_to_drop, axis=1, inplace=True)
 
             # Rename 'value' columns, concatenating the unit to the column name
@@ -492,7 +486,6 @@ class DatasetPrep(object):
                 csv_name = "{date}_{name}_daily.csv".format(date=export_date, name=key)
                 csv_path = os.path.join(os.getcwd(), "testing", csv_name)
                 write_to_csv(table, csv_path, self.verbose)
-                # print("Wrote to {csv_file_name}".format(csv_file_name = csv_path))
 
         full_aggregate = self.join_all_tables(aggregated)
 
