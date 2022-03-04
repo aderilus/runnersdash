@@ -2,6 +2,16 @@
                            `export.xml` exported from the Health app,
                            into a database.
 
+Output(s):
+    1. A database (.db) file under subdirectory `data/` containing
+       all health data organized into tables, grouped by their
+       identifier. The file name will include the date corresponding
+       to the given export date in the specific `export.xml` file
+       it was extracted from.
+    2. A list (.csv) of the tables in the .db file, along with the
+       correspondinng number of entries and elapsed time. This is
+       stored in the `reports/` subdirectory.
+
 Note: Last tested on Mar. 2022 Apple Health data.
 """
 
