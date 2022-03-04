@@ -90,7 +90,8 @@ class HealthDatabase(object):
                     if new_table_tag != i:
                         break
 
-            create_query = "CREATE TABLE {new_table} AS SELECT * FROM {source_table} WHERE {col} = '{col_val}'".format(new_table=new_table_tag, source_table=table_name, col=col_name, col_val=i)
+            create_msg = "CREATE TABLE {new_table} AS SELECT * FROM {source_table} WHERE {col} = '{col_val}'"
+            create_query = create_msg.format(new_table=new_table_tag, source_table=table_name, col=col_name, col_val=i)
 
             self.cursor.execute(create_query)
 
