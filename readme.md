@@ -17,12 +17,12 @@ git clone https://github.com/nadinetab/runnersdash.git
 2. Move this file to the same directory you cloned this repository to and open it to extract. This will create a new folder called `apple_health_export` where all your health data resides.
 3. To run `extractapplehealth.py`:
 
-    a. This assumes that `export.zip` has been extracted in the same directory. In the terminal, change to the local runnersdash directory and run
+    a. If `export.zip` has been extracted within the `runnersdash/` directory: in the terminal, run
     ```
     python extractapplehealth.py
     ```
 
-    b. Assuming the contents of `export.zip` have been extracted somewhere else, in the local directory, run
+    b. Or if `export.zip` has been extracted somewhere else, run
     ```
     python extractapplehealth.py /path/to/export.xml
     ```
