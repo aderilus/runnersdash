@@ -25,9 +25,6 @@ ver. 1.3 (04 Mar. 2022):
     - layout.py
     - py files inside apps/
 
-Known issue(s):
-- Is get_weekly_data() method still necessary?
-
 """
 
 __version__ = '1.2'
@@ -97,25 +94,8 @@ def get_numeric_colnames(dataframe):
     return numeric_cols
 
 
-def get_weekly_data(df, col, agg_method, datecol="Date"):
-    """ Aggregates Pandas Series by week according to aggregation method.
-
-    Args:
-        df (pd.DataFrame):
-        col (str):
-        datecol (str):
-        agg_method (str): 'sum' or 'avg'
-    """
-    agg = df.copy()
-    agg[datecol] = agg[datecol] - pd.to_timedelta(7, unit='d')
-    if agg_method == "sum":
-        return agg.groupby(pd.Grouper(key=datecol, freq='W-MON'))[col].sum().reset_index()
-    if agg_method == "avg":
-        return agg.groupby(pd.Grouper(key=datecol, freq='W-Mon'))[col].mean().reset_index()
-
-
 # Build layout of Dash
-def generate_running_log(dataframe):
+def generate_running_log(dataframe):  # Moved to graphingroutines.py
     """ Generate and format a DataTable to display DataFrame.
     """
     cols = []
@@ -159,7 +139,7 @@ def generate_running_log(dataframe):
     )
 
 
-def distancegraph(distancecol, ycol2, xcol, xStart, xEnd):
+def distancegraph(distancecol, ycol2, xcol, xStart, xEnd):  # Moved to graphingroutines.py
     """ Generate a line and bar graph against time within a given date range.
 
     Args:
@@ -205,7 +185,7 @@ def distancegraph(distancecol, ycol2, xcol, xStart, xEnd):
 
 
 def generate_distancegraph(df, distance_col, ycol2, dcc_id, datecol="Date",
-                           dateStart="", dateEnd=""):
+                           dateStart="", dateEnd=""):  # Moved to graphingroutines.py
     """
     Args:
         df (pd.DataFrame):
@@ -224,12 +204,12 @@ def generate_distancegraph(df, distance_col, ycol2, dcc_id, datecol="Date",
 
 
 # Open browser automatically
-def open_dash_link():
+def open_dash_link():  # Moved to app.py
     webbrowser.open_new('http://127.0.0.1:8050/')
 
 
 # Run Dash server
-def generate_dash_server(toggle_debug=False):
+def generate_dash_server(toggle_debug=False):  # Moved to app.py
     Timer(1, open_dash_link).start()
     app.run_server(debug=toggle_debug)
 
@@ -258,7 +238,7 @@ if __name__ == '__main__':
     numeric_cols = get_numeric_colnames(dataframe)
 
     # # Create instance of a Dash class
-    app = dash.Dash(__name__, external_stylesheets=[dbc.themes.LUX])
+    app = dash.Dash(__name__, external_stylesheets=[dbc.themes.LUX])  # Moved to index.py
 
     # Define Dash layout
     app.layout = html.Div(
@@ -398,4 +378,4 @@ if __name__ == '__main__':
 
         return fig
 
-    generate_dash_server(True)
+    generate_dash_server(True)  # Moved to app.py
