@@ -1,0 +1,34 @@
+.dashheader {
+    height: 5rem;
+    padding: 3rem 3rem 6rem 3rem;
+    background-color:lavender;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+}
+
+.dashheader h1 {
+    font-weight: 400;
+}
+
+.dashheader h6{
+    font-weight: 300;
+}
+
+.nav-buttons {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.testmaincontainer {
+    background-color:dimgray;
+    /* padding: 10rem; */
+}
+
+.testleftcol {
+    background-color:powderblue;
+}
+
+.testrightcol {
+    background-color:honeydew;
+}
