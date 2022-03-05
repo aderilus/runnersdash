@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 
 navbuttons = dbc.ButtonGroup(
     children=[
-        dbc.Button("Main view",
+        dbc.Button("Left",
                    color="secondary",
                    outline=True),
         dbc.Button("Middle",
@@ -15,7 +15,7 @@ navbuttons = dbc.ButtonGroup(
                    color="secondary",
                    outline=True)
     ],
-    id="navbuttons",
+    id="nav_buttons",
 )
 
 navcontainer = dbc.Container(
@@ -23,7 +23,7 @@ navcontainer = dbc.Container(
         dbc.Row(
             [
                 dbc.Col(),
-                dbc.Col(navbuttons, 
+                dbc.Col(navbuttons,
                         width="auto"),
                 dbc.Col(),
             ],
