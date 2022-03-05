@@ -3,7 +3,7 @@
 
 import webbrowser
 from threading import Timer
-from dashboard.index import app
+from dashboard.content import app
 
 
 def open_dash_link():
