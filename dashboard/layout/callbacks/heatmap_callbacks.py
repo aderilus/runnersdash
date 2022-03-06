@@ -1,7 +1,4 @@
 """ Callbacks for heatmaps.
-
-TODO:
-    - Implement dropdown for z-axis/colobar.
 """
 from dashboard.index import app
 from dashboard.layout.activityheatmap import build_heatmap
