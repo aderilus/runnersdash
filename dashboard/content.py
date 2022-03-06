@@ -1,34 +1,35 @@
-""" Contains callbacks imports
+""" Contains callbacks imports.
 """
 
 from dash import html
 from dash import dcc
 import dash_bootstrap_components as dbc
 
+from preparedatasets import DAYS_OF_WK
 from dashboard.index import app
 from dashboard.layout.header import header
-
-nav = dbc.ButtonGroup(
-    children=[
-        dbc.Button("Main view"),
-        dbc.Button("Middle"),
-        dbc.Button("Right")
-    ],
-    class_name="nav-buttons",
-)
+from dashboard.layout.navigation import navcontainer
+from dashboard.layout.activityheatmap import (hmap_select_yr,
+                                              hmap_select_type,
+                                              hmap_select_z)
+from dashboard.layout.callbacks import heatmap_callbacks
 
 left_col = dbc.Col(
     class_name="testleftcol",
     children=[
         html.H6("Hello")
     ],
-    width="auto",
 )
+
 
 right_col = dbc.Col(
     class_name="testrightcol",
     children=[
-        html.H6("World")
+        html.H6("World"),
+        hmap_select_yr,
+        hmap_select_z,
+        hmap_select_type,
+        dcc.Graph(id="activity-heatmap")
     ],
 )
 
@@ -39,7 +40,12 @@ main_container = dbc.Container(
             children=[
                 left_col,
                 right_col
-            ]
+            ],
+        ),
+        dbc.Row(
+            children=[
+
+            ],
         ),
     ],
     fluid=True,
@@ -48,6 +54,6 @@ main_container = dbc.Container(
 app.layout = html.Div(
     children=[
         header,
-        nav,
+        navcontainer,
         main_container,
     ])
