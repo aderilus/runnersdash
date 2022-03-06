@@ -7,12 +7,12 @@
     flex-wrap: nowrap;
 }
 
-.dashheader h1 {
+.dashheader h1, h2 {
     font-weight: 400;
 }
 
 .dashheader h6{
-    font-weight: 300;
+    font-weight: 200;
 }
 
 .nav-buttons {
