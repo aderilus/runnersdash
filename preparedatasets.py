@@ -5,14 +5,18 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         1. "[date]_dailyaggregate.csv"
                         2. "[date]_weeklyaggregate.csv"
                         3. "[date]_monthlyaggregate.csv"
-                        4. "[date]_runningheatmap.csv"
+                        4. "[date]_running_resampledDaily.csv"
 
 ver 1.2:
     - Reorganizes routines into class DatasetPrep.
     - Implemented linting to clean up code
+
+ver. 1.3:
+    - Adds columns 'Day of Week' and 'Calendar Week' to
+      resampled running data (see 4th listed output).
 """
 
-__version__ = '1.2'
+__version__ = '1.3'
 
 import os
 import sys
@@ -23,6 +27,7 @@ import math
 
 TB_OF_INTEREST = ['Running', 'VO2Max', 'BodyMass', 'MenstrualFlow',
                   'RestingHeartRate']
+DAYS_OF_WK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 
 # --- HELPER FUNCTIONS --- #
@@ -567,14 +572,22 @@ class DatasetPrep(object):
         df.index = pd.to_datetime(df.index)
         df = df.resample("D").asfreq()
 
-        # Add average pace and additional running stats
+        # Adds average pace and additional running stats
         if tablename == 'Running':
             self.add_more_runstats(df)
 
-        # Add Year, Month, Day column
+        # Adds Year, Month, Day column
         df['Year'] = df.index.year
         df['Month'] = df.index.month
         df['Day'] = df.index.day
+
+        # Adds 'Day of Week' column
+        num_to_day = dict(zip(range(7), DAYS_OF_WK))
+        df['Day of Week'] = df.index.dayofweek
+        df['Day of Week'] = df['Day of Week'].map(num_to_day)
+
+        # Adds 'Calendar Week' column
+        df['Calendar Week'] = df.index.isocalendar().week
 
         if write_to_file:
             namebase = "{date}_{name}_resampledDaily.csv"
