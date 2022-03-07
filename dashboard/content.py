@@ -5,7 +5,6 @@ from dash import html
 from dash import dcc
 import dash_bootstrap_components as dbc
 
-from preparedatasets import DAYS_OF_WK
 from dashboard.index import app
 from dashboard.layout.header import header
 from dashboard.layout.navigation import navcontainer

@@ -83,15 +83,15 @@ hmap_select_yr = dcc.Dropdown(
     id="heatmap-year"
 )
 
-hmap_select_type = dcc.RadioItems(
-    options=[
-        {"label": i, "value": i} for i in ['By Month', 'By Week']
-    ],
-    value='By Month',
-    id="heatmap-type",
-    labelStyle={'display': 'inline-block',
-                'marginTop': '5px'},
-)
+# hmap_select_type = dcc.RadioItems(
+#     options=[
+#         {"label": i, "value": i} for i in ['By Month', 'By Week']
+#     ],
+#     value='By Month',
+#     id="heatmap-type",
+#     labelStyle={'display': 'inline-block',
+#                 'marginTop': '5px'},
+# )
 
 hmap_select_z = dcc.Dropdown(
     options=[
