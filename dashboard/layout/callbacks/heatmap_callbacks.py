@@ -12,7 +12,7 @@ MONTH_LIST = ['Jan', 'Feb', 'Mar', 'Apr',
 
 
 @app.callback(
-    Output("activity-heatmap", "figure"),
+    Output("monthbyday-heatmap", "figure"),
     Input("heatmap-year", "value"),
     Input("heatmap-type", "value"),
     Input("heatmap-zaxis", "value")

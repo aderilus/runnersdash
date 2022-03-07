@@ -22,15 +22,16 @@ left_col = dbc.Col(
 )
 
 
-right_col = dbc.Col(
-    class_name="col-6 testrightcol",
+monthbyday_heatmap = dbc.Col(
+    # class_name="col-8",
     children=[
         html.H6("World"),
         hmap_select_yr,
         hmap_select_z,
         hmap_select_type,
-        dcc.Graph(id="activity-heatmap")
+        dcc.Graph(id="monthbyday-heatmap")
     ],
+    width={"size": 8, "order": "last", },
 )
 
 main_container = dbc.Container(
@@ -39,16 +40,17 @@ main_container = dbc.Container(
         dbc.Row(
             children=[
                 left_col,
-                right_col
+                monthbyday_heatmap,
             ],
         ),
         dbc.Row(
             children=[
-
+                html.H6("What's up"),
             ],
+            class_name="testrightcol",
         ),
     ],
-    fluid=True,
+    fluid=False,  # fluid=True to remove margins that dbc.Container sets up
 )
 
 app.layout = html.Div(
