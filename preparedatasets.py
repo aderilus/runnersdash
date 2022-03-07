@@ -23,11 +23,10 @@ import sys
 import pandas as pd
 import healthdatabase as hd
 import math
-
+from utils import DAYS_OF_WK
 
 TB_OF_INTEREST = ['Running', 'VO2Max', 'BodyMass', 'MenstrualFlow',
                   'RestingHeartRate']
-DAYS_OF_WK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 
 # --- HELPER FUNCTIONS --- #
