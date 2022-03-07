@@ -1,18 +1,20 @@
 .dashheader {
     height: 5rem;
-    padding: 3rem 3rem 6rem 3rem;
+    padding: 3rem 3rem 3rem 3rem;
     background-color:lavender;
     display: flex;
     flex-direction: column;
     flex-wrap: nowrap;
 }
 
-.dashheader h1, h2 {
-    font-weight: 400;
+.dashheader h5 {
+    font-size: 1.25rem;
+    font-weight: 500;
 }
 
 .dashheader h6{
-    font-weight: 200;
+    font-size: 0.85rem;
+    font-weight: 300;
 }
 
 .nav-buttons {

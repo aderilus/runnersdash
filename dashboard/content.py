@@ -23,7 +23,7 @@ left_col = dbc.Col(
 
 
 right_col = dbc.Col(
-    class_name="testrightcol",
+    class_name="col-6 testrightcol",
     children=[
         html.H6("World"),
         hmap_select_yr,
