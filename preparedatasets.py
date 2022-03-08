@@ -31,14 +31,14 @@ TODO:
     - check load_processed_data for 'data/' with no db files (edge case).
 """
 
-__version__ = '1.3'
+__version__ = '1.4'
 
 import os
 import sys
 import pandas as pd
 import healthdatabase as hd
 import math
-from utils import DAYS_OF_WK
+from utils import DAYS_OF_WK, extract_export_date
 from pathlib import Path
 
 TB_OF_INTEREST = ['Running', 'VO2Max', 'BodyMass', 'MenstrualFlow',
@@ -105,19 +105,6 @@ def find_substr_in_list(txt, listobj, verbose):
         print(msg.format(elem=txt, list=listobj))
 
     return None
-
-
-def extract_export_date(db_path):
-    """ Returns export date of the database file as a string formatted
-        as "YYYYmmdd".
-    """
-    split_db_path = db_path.split('/')
-    if len(split_db_path) > 1:
-        export_date = split_db_path[-1].split('_')[0]
-    else:
-        export_date = split_db_path[0].split('_')[0]
-
-    return export_date
 
 
 def join_two_tables(df_left, df_right, join_left, join_right):
@@ -573,7 +560,7 @@ class DatasetPrep(object):
         daily_aggregate = self.aggregate_outputs['daily']
 
         # Aggregate by week and month
-        self.get_weekly_monthly_aggregate(daily_aggregate, self.exportDate)
+        self.aggregate_weekly_monthly(daily_aggregate, self.exportDate)
 
     def resample_table(self, tablename, on='Date', write_to_file=True):
         """ Resample a table by day. Fills missing values with NaN.
