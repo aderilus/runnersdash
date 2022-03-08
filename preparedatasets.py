@@ -694,6 +694,13 @@ def load_processed_data(agg_tables=TB_OF_INTEREST, resample_tables=['Running'],
                            and month.
         resample_tables (list): List of table names to resample by day.
         verbose (bool): Toggle print functions.
+
+    Returns:
+        A tuple of two dictionaries (dict1, dict2). `dict1` holds aggregated
+        DataFrames keyed by their aggregation method (['daily', 'weekly',
+        'monthly']). `dict2` holds resampled DataFrames keyed by the name of
+        the resampled table as it appears in the {YYYYmmdd}_applehealth.db
+        file.
     """
 
     db_list = list(sorted(Path('data/').glob('*applehealth.db')))
