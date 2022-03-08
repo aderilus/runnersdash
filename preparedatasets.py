@@ -14,6 +14,21 @@ ver 1.2:
 ver. 1.3:
     - Adds columns 'Day of Week' and 'Calendar Week' to
       resampled running data (see 4th listed output).
+
+ver. 1.4:
+    - Added class variables to hold processed data (`aggregate_outputs`
+      and `resample_outputs`). Also added corresponding accessor methods.
+    - Renamed aggregating and resampling routines and removed their return
+      statements. They instead set the aforementioned class variables with
+      their output.
+    - Created function `load_processed_data()` to find and read the most recent
+      database file, create a DatasetPrep obj and run all processing routines.
+      Wrapped the processing routines in function `get_processed_data()`.
+    - Can run preparedatasets from the terminal or import in a file and run
+      `load_processed_data()`
+
+TODO:
+    - check load_processed_data for 'data/' with no db files (edge case).
 """
 
 __version__ = '1.3'
@@ -24,6 +39,7 @@ import pandas as pd
 import healthdatabase as hd
 import math
 from utils import DAYS_OF_WK
+from pathlib import Path
 
 TB_OF_INTEREST = ['Running', 'VO2Max', 'BodyMass', 'MenstrualFlow',
                   'RestingHeartRate']
@@ -198,6 +214,10 @@ class DatasetPrep(object):
         self.extracted_data = {}
         self.formatted_data = {}
 
+        # Outputs of processing routines
+        self.aggregate_outputs = {}
+        self.resample_outputs = {}
+
         # Use in rename_column_with_unit
         self.colname_prefix = {'Running': ['Total Duration', 'Total Distance',
                                            'Total Energy Burned From Run'],
@@ -225,6 +245,18 @@ class DatasetPrep(object):
 
     def get_formatted_data(self):
         return self.formatted_data
+
+    def get_all_aggregates(self):
+        """ Returns aggregated DataFrames within a dictionary keyed by their
+            aggregation type ('daily', 'weekly', or 'monthly').
+        """
+        return self.aggregate_outputs
+
+    def get_all_resamples(self):
+        """ Returns resampled DataFrames within a dictionary keyed by the
+            database table name.
+        """
+        return self.resample_outputs
     # --- END ACCESSORS --- #
 
     # --- EXTRACT & LOAD --- #
@@ -422,7 +454,7 @@ class DatasetPrep(object):
         dataframe[run_type_colname] = dataframe[avg_duration_colname].map(get_run_type)
 
     # --- AGGREGATE BY DATE --- #
-    def get_daily_aggregate(self, df_dict, export_date):
+    def aggregate_daily(self, df_dict, export_date):
         """ Group DataFrame rows by date. Each row will have a distinct date.
             Aggregation method for each column is defined by method
             get_aggregation_method().
@@ -457,9 +489,10 @@ class DatasetPrep(object):
         csvpath = os.path.join(os.getcwd(), "data/", csvname)
         write_to_csv(full_aggregate, csvpath, self.verbose)
 
-        return full_aggregate
+        # Set class variable
+        self.aggregate_outputs['daily'] = full_aggregate
 
-    def get_weekly_monthly_aggregate(self, dailyagg, exportdate):
+    def aggregate_weekly_monthly(self, dailyagg, exportdate):
         """
         Args:
             dailyagg (pd.DataFrame): Dataset grouped by day.
@@ -529,22 +562,25 @@ class DatasetPrep(object):
         write_to_csv(weeklyagg, weeklyname, self.verbose)
         write_to_csv(monthlyagg, monthlyname, self.verbose)
 
-        return weeklyagg, monthlyagg
+        self.aggregate_outputs['weekly'] = weeklyagg
+        self.aggregate_outputs['monthly'] = monthlyagg
 
-    def get_all_aggregates(self):
-        """ Return DataFrames containing the combined DataFrames resampled
-            daily, weekly, and monthly.
+    def run_all_aggregates(self):
+        """ Wrapper for all aggregation routines.
         """
+        # Aggregate by day
+        self.aggregate_daily(self.formatted_data, self.exportDate)
+        daily_aggregate = self.aggregate_outputs['daily']
 
-        daily_agg = self.get_daily_aggregate(self.formatted_data, self.exportDate)
-        weekly_agg, monthly_agg = self.get_weekly_monthly_aggregate(daily_agg, self.exportDate)
+        # Aggregate by week and month
+        self.get_weekly_monthly_aggregate(daily_aggregate, self.exportDate)
 
-        return daily_agg, weekly_agg, monthly_agg
-
-    def get_resampled_data(self, tablename, on='Date', write_to_file=True):
+    def resample_table(self, tablename, on='Date', write_to_file=True):
         """ Resample a table by day. Fills missing values with NaN.
 
-        Note: For now, its main use is to prepare a running heatmap.
+        Note for ver. 1.4:
+            For now, its main use is to prepare a running heatmap. Only
+            implemented for and tested on tablename = 'Running'.
 
         Args:
             tablename (str): Name of the table to resample.
@@ -556,7 +592,7 @@ class DatasetPrep(object):
                                   CSV in data sub-directory.
 
         Returns:
-            Resampled DataFrame
+            None
         """
 
         data = self.formatted_data[tablename]
@@ -594,19 +630,94 @@ class DatasetPrep(object):
             csvpath = os.path.join(os.getcwd(), "data", file_name)
             write_to_csv(df, csvpath, self.verbose)
 
-        return df
+        self.resample_outputs[tablename] = df
     # --- END AGGREGATE --- #
+
+
+# --- RUN PROCESSING ROUTINES --- #
+def get_processed_data(database_path, tbls_to_agg, tbls_to_resample,
+                       return_outputs=False, verbose=True, write_to_csv=True):
+    """ Runs all processing routines on given database file.
+
+    Args:
+        database_path (str or PosixPath): Path of database file to read.
+        tbls_to_agg (list): List of names of the table(s) to run aggregation
+                            routines on.
+        tbls_to_resample (list): List of names of the table(s) from database
+                                to run resample_table() on.
+    Kwargs:
+        return_outputs (bool): Toggle whether to return the output
+                               DataFrames. Default False.
+        verbose (bool): Toggle print functions.
+        resample_var (str or list): Name of the table(s) from database to run
+                            resampling function get_resampled_data() on.
+        write_csv (bool): Toggle to write output DataFrames to CSV. Default
+                          is True.
+
+    Returns:
+        If return_outputs = True, returns a tuple of two dictionaries
+        (dict1, dict2). `dict1` holds aggregated DataFrames keyed by their
+        aggregation method (['daily', 'weekly', 'monthly']). `dict2` holds
+        resampled DataFrames keyed by the name of the resampled table as it
+        appears in the {YYYYmmdd}_applehealth.db file.
+
+        Example: get_processed_data(...) --> ({'daily': pd.DataFrame,
+                                               'weekly': pd.DataFrame,
+                                               'monthly': pd.DataFrame
+                                                },
+                                              {'Running': pd.DataFrame})
+    """
+
+    hdata = DatasetPrep(database_path, tbls_to_agg, verbose, testing=False)
+    hdata.load_database()
+    hdata.run_all_aggregates()  # Run aggregating routines
+
+    # Run resampling routine
+    for i in tbls_to_resample:
+        hdata.resample_table(i, on='Date', write_to_file=write_to_csv)
+
+    if return_outputs:
+        return (hdata.get_all_aggregates(), hdata.get_all_resamples())
+
+
+# --- IF RUNNING PREPAREDATASETS FROM ANOTHER PY FILE --- #
+def load_processed_data(agg_tables=TB_OF_INTEREST, resample_tables=['Running'],
+                        verbose=False):
+    """ Gets list of available db files inside 'data/' subdirectory
+        and runs all data processing routines.
+
+        Use this if trying to run processing routines from another
+        file.
+
+    Kwargs:
+        agg_tables (list): List of table names to aggregate by day, week,
+                           and month.
+        resample_tables (list): List of table names to resample by day.
+        verbose (bool): Toggle print functions.
+    """
+
+    db_list = list(sorted(Path('data/').glob('*applehealth.db')))
+    most_recent_ver = db_list[-1]
+
+    if verbose:
+        print('Available db files:\n')
+        for i in db_list:
+            print(i, '\n')
+        print('Reading from... {0}'.format(most_recent_ver))
+
+    return get_processed_data(most_recent_ver, tbls_to_agg=agg_tables,
+                              tbls_to_resample=resample_tables,
+                              return_outputs=True)
 
 
 if __name__ == '__main__':
 
     if len(sys.argv) != 2:
-        print("USAGE: $ python preparedatasets.py path/to/applehealthdatabase.db", file=sys.stderr)
+        print("USAGE: $ python preparedatasets.py path/to/applehealthdatabase.db",
+              file=sys.stderr)
         sys.exit(1)
 
     dbpath = sys.argv[1]
-    s = DatasetPrep(dbpath, TB_OF_INTEREST, verbose=True, testing=False)
-
-    s.load_database()
-    s.get_all_aggregates()
-    s.get_resampled_data('Running', on='Date', write_to_file=True)
+    get_processed_data(dbpath, tbls_to_agg=TB_OF_INTEREST,
+                       tbls_to_resample=['Running'], verbose=True,
+                       write_to_csv=True)
