@@ -655,11 +655,12 @@ def get_processed_data(database_path, tbls_to_agg, tbls_to_resample,
                           is True.
 
     Returns:
-        If return_outputs = True, returns a tuple of two dictionaries
-        (dict1, dict2). `dict1` holds aggregated DataFrames keyed by their
-        aggregation method (['daily', 'weekly', 'monthly']). `dict2` holds
-        resampled DataFrames keyed by the name of the resampled table as it
-        appears in the {YYYYmmdd}_applehealth.db file.
+        If return_outputs = True, returns a tuple of the export date formatted
+        as a string "YYYYmmdd" and two dictionaries ("YYYYmmdd", dict1, dict2).
+        `dict1` holds aggregated DataFrames keyed by their aggregation method
+        (['daily', 'weekly', 'monthly']). `dict2` holds resampled DataFrames
+        keyed by the name of the resampled table as it appears in the
+        {YYYYmmdd}_applehealth.db file.
 
         Example: get_processed_data(...) --> ({'daily': pd.DataFrame,
                                                'weekly': pd.DataFrame,
@@ -677,7 +678,9 @@ def get_processed_data(database_path, tbls_to_agg, tbls_to_resample,
         hdata.resample_table(i, on='Date', write_to_file=write_to_csv)
 
     if return_outputs:
-        return (hdata.get_all_aggregates(), hdata.get_all_resamples())
+        return (hdata.get_export_date,
+                hdata.get_all_aggregates(),
+                hdata.get_all_resamples())
 
 
 # --- IF RUNNING PREPAREDATASETS FROM ANOTHER PY FILE --- #
@@ -696,7 +699,8 @@ def load_processed_data(agg_tables=TB_OF_INTEREST, resample_tables=['Running'],
         verbose (bool): Toggle print functions.
 
     Returns:
-        A tuple of two dictionaries (dict1, dict2). `dict1` holds aggregated
+        A tuple of the export date formatted as a string "YYYYmmdd" and two
+        dictionaries ("YYYYmmdd", dict1, dict2). `dict1` holds aggregated
         DataFrames keyed by their aggregation method (['daily', 'weekly',
         'monthly']). `dict2` holds resampled DataFrames keyed by the name of
         the resampled table as it appears in the {YYYYmmdd}_applehealth.db
