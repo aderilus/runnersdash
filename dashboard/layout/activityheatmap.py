@@ -11,15 +11,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 
-VERBOSE = True
 DATA = get_resampled_runs()  # Daily resampled running metricss
 DATA_YEAR_RANGE = sort(DATA['Year'].unique().flatten())
 
 # Get extremas of the z-values
 Z_OPTIONS = [COLMAPPER['distance'], COLMAPPER['avg pace']]
 Z_EXTREMA = dict(zip(Z_OPTIONS, [get_column_extremas(DATA, z) for z in Z_OPTIONS]))
-if VERBOSE:
-    print(Z_EXTREMA)
 
 
 def build_heatmap(year, x_col, y_col, z_col, hmap_id, cscale='agsunset_r'):
@@ -47,8 +44,8 @@ def build_heatmap(year, x_col, y_col, z_col, hmap_id, cscale='agsunset_r'):
         colorscale=cscale,
         colorbar=dict(title=dict(text=z_col,
                                  side='right')),
-        zmin=Z_EXTREMA[z][0],
-        zmax=Z_EXTREMA[z][1],
+        zmin=Z_EXTREMA[z_col][0],
+        zmax=Z_EXTREMA[z_col][1],
         xgap=1,
         ygap=1,
     )

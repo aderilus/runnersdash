@@ -18,7 +18,7 @@ COLMAPPER = {'distance': 'Total Distance (km)',
              'avg rhr': 'Avg. Resting HR (bpm)',
              'date': 'Date',
              'week': 'Week',
-             'avg_pace': 'Avg. Pace (min/km)'}
+             'avg pace': 'Avg. Pace (min/km)'}
 DAYS_OF_WK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 DAY_MAP = dict(zip(range(1, 8), DAYS_OF_WK))  # Use date.isoweekday()
 MONTHS = ['January', 'February', 'March', 'April', 'May',

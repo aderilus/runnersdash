@@ -24,7 +24,7 @@ def update_monthly_stats(in_year, in_month):
                                        in_month, in_year)
     total_duration = get_monthly_stats(COLMAPPER['duration'],
                                        in_month, in_year)
-    avg_pace = get_monthly_stats(COLMAPPER['avg_pace'],
+    avg_pace = get_monthly_stats(COLMAPPER['avg pace'],
                                  in_month, in_year)
     avg_rhr = get_monthly_stats(COLMAPPER['avg rhr'],
                                 in_month, in_year)

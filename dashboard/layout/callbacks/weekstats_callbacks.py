@@ -64,7 +64,7 @@ def update_weekly_stats(click_data):
 
     total_distance = get_weekly_stat(COLMAPPER['distance'], week_as_datetime)
     total_duration = get_weekly_stat(COLMAPPER['duration'], week_as_datetime)
-    avg_pace = get_weekly_stat(COLMAPPER['avg_pace'], week_as_datetime)
+    avg_pace = get_weekly_stat(COLMAPPER['avg pace'], week_as_datetime)
 
     pacemin, pacesec = format_pace(avg_pace)
 
