@@ -35,7 +35,7 @@ import sys
 import pandas as pd
 import healthdatabase as hd
 import math
-from utils import (DAYS_OF_WK, 
+from utils import (DAYS_OF_WK,
                    extract_export_date,
                    get_unit_from_string)
 from pathlib import Path
