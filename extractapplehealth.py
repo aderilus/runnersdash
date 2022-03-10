@@ -80,9 +80,9 @@ class AppleHealthExtraction(object):
         """
         # Get tags of all nodes
         self.listoftags = [child.tag for child in self.root.iter()]
-        self.uniquetags = np.unique(np.array(self.listoftags))  # List of unique tags
+        self.uniquetags = set(self.listoftags)  # Set of unique tags
         # Remove certain data types from extraction list
-        self.uniquetags = np.setdiff1d(self.uniquetags, np.array(self.exclude))
+        self.uniquetags = list(self.uniquetags - set(ELEMENTS_TO_EXCLUDE))
 
         return self.uniquetags
 
