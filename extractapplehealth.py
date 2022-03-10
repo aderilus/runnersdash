@@ -93,8 +93,7 @@ class AppleHealthExtraction(object):
         within the ElementTree object.
 
         Example tags found in raw Apple Health export:
-            - Record     - Workout
-            - Me         - ActivitySummary
+            ['Record', 'Workout', 'Me', 'ActivitySummary', 'WorkoutRoute']
 
         The resulting table is stored under a database .db file, the name of
         which is specified by `self.db_name`.
