@@ -6,23 +6,20 @@
 
 from numpy import sort
 from dash import dcc
-from utils import get_resampled_runs, get_column_extremas
+from utils import get_resampled_runs, get_column_extremas, COLMAPPER
 import pandas as pd
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 
-VERBOSE = False
+VERBOSE = True
 DATA = get_resampled_runs()  # Daily resampled running metricss
 DATA_YEAR_RANGE = sort(DATA['Year'].unique().flatten())
 
 # Get extremas of the z-values
-Z_OPTIONS = ['Total Distance (km)', 'Avg. Pace (min/km)']
-Z_EXTREMA = {}
-for z in Z_OPTIONS:
-    Z_EXTREMA[z] = get_column_extremas(DATA, z)
-
-    if VERBOSE:
-        print(z, Z_EXTREMA[z])
+Z_OPTIONS = [COLMAPPER['distance'], COLMAPPER['avg pace']]
+Z_EXTREMA = dict(zip(Z_OPTIONS, [get_column_extremas(DATA, z) for z in Z_OPTIONS]))
+if VERBOSE:
+    print(Z_EXTREMA)
 
 
 def build_heatmap(year, x_col, y_col, z_col, hmap_id, cscale='agsunset_r'):
