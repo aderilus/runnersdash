@@ -1,38 +1,32 @@
-"""
-TODO:
-    - Figure out where to run preparedatasets.py
-        - Write function get_latest_data() to find the datestring
-          of most recent Apple Health data.
+""" Generates an activity heatmap, with the calendar month in the x-axis,
+    and calendar day in the y-axis. The z-axis corresponds to some
+    user-selected metric of the activity.
 """
 
-from dashboard.layout.layout_utils import get_project_root
+
 from numpy import sort
 from dash import dcc
+from utils import get_resampled_runs, get_column_extremas
 import pandas as pd
 import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 
-
-PROJECT_ROOT = get_project_root()
-DATA_PATH = PROJECT_ROOT.joinpath('data', '20220303_Running_resampledDaily.csv')
-DATA = pd.read_csv(DATA_PATH, dtype={'Day of Week': str,
-                                     'Calendar Week': int,
-                                     'Day': int,
-                                     'Month': str,
-                                     'Year': int})
+VERBOSE = False
+DATA = get_resampled_runs()  # Daily resampled running metricss
 DATA_YEAR_RANGE = sort(DATA['Year'].unique().flatten())
 
-# TODO: Replace this with a dictionary in utils.py:
-#   DISTANCE_COL = 'Total Distance (km)
-#   DURATION_COL = 'Total Duration (min)
-#   DATA_COLNAMES = {'Distance': DISTANCE_COL, ...}
-Z_OPTIONS = ['Total Distance (km)', 'Total Duration (min)']
+# Get extremas of the z-values
+Z_OPTIONS = ['Total Distance (km)', 'Avg. Pace (min/km)']
+Z_EXTREMA = {}
+for z in Z_OPTIONS:
+    Z_EXTREMA[z] = get_column_extremas(DATA, z)
+
+    if VERBOSE:
+        print(z, Z_EXTREMA[z])
 
 
 def build_heatmap(year, x_col, y_col, z_col, hmap_id, cscale='agsunset_r'):
-    """ x-axis = Day of Week, y-axis = Calendar Week
-        or for heatmap 2:
-        x-axis = Month, y-axis = Day
+    """
     Args:
         year (int):
         x_col (str):
@@ -56,6 +50,9 @@ def build_heatmap(year, x_col, y_col, z_col, hmap_id, cscale='agsunset_r'):
         colorscale=cscale,
         colorbar=dict(title=dict(text=z_col,
                                  side='right')),
+        zmin=Z_EXTREMA[z][0],
+        zmax=Z_EXTREMA[z][1],
+        xgap=1,
         ygap=1,
     )
 
@@ -80,18 +77,9 @@ hmap_select_yr = dcc.Dropdown(
     ],
     value=DATA_YEAR_RANGE[-1],
     placeholder="Year",
-    id="heatmap-year"
+    id="heatmap-year",
 )
 
-# hmap_select_type = dcc.RadioItems(
-#     options=[
-#         {"label": i, "value": i} for i in ['By Month', 'By Week']
-#     ],
-#     value='By Month',
-#     id="heatmap-type",
-#     labelStyle={'display': 'inline-block',
-#                 'marginTop': '5px'},
-# )
 
 hmap_select_z = dcc.Dropdown(
     options=[
