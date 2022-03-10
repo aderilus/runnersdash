@@ -1,5 +1,9 @@
+.card-header h6{
+    margin-bottom: 0rem;
+}
+
 .dashheader {
-    height: 5rem;
+    height: 4rem;
     padding: 3rem 3rem 3rem 3rem;
     background-color:lavender;
     display: flex;
@@ -34,3 +38,4 @@
 .testrightcol {
     background-color:honeydew;
 }
+  
