@@ -26,9 +26,6 @@ ver. 1.4:
       Wrapped the processing routines in function `get_processed_data()`.
     - Can run preparedatasets from the terminal or import in a file and run
       `load_processed_data()`
-
-TODO:
-    - check load_processed_data for 'data/' with no db files (edge case).
 """
 
 __version__ = '1.4'
@@ -38,7 +35,9 @@ import sys
 import pandas as pd
 import healthdatabase as hd
 import math
-from utils import DAYS_OF_WK, extract_export_date
+from utils import (DAYS_OF_WK, 
+                   extract_export_date,
+                   get_unit_from_string)
 from pathlib import Path
 
 TB_OF_INTEREST = ['Running', 'VO2Max', 'BodyMass', 'MenstrualFlow',
@@ -75,15 +74,6 @@ def get_run_type(x):
         if x >= 60:
             return 'Long'
         return 'Recovery'
-
-
-def get_unit_from_string(input):
-    """ Helper function for get_weekly_monthly_aggregate().
-    Returns the unit (as a string) from a string formatted as
-    "Measured values (unit)".
-    """
-    isolate1 = input.split('(')[-1]
-    return isolate1.split(')')[0]
 
 
 def find_substr_in_list(txt, listobj, verbose):
@@ -194,7 +184,7 @@ class DatasetPrep(object):
         self.verbose = verbose
         self.testing = testing
 
-        self.dbPath = database_path
+        self.dbPath = str(database_path)
         self.exportDate = extract_export_date(self.dbPath)
         self.tableNames = tables
 
@@ -496,7 +486,7 @@ class DatasetPrep(object):
         monthlyagg = dailyagg.drop(cols_to_drop, axis=1)
 
         weeklyagg['Date'] = pd.to_datetime(weeklyagg['Date'], format="%Y-%m-%d")
-        weeklyagg['Week'] = weeklyagg['Date'] - pd.to_timedelta(7, unit='d')
+        weeklyagg['Week'] = weeklyagg['Date'] - pd.to_timedelta(6, unit='d')
 
         monthlyagg['Date'] = pd.to_datetime(monthlyagg['Date'], format="%Y-%m-%d")
         monthlyagg['Year'] = monthlyagg['Date'].dt.year
@@ -665,7 +655,7 @@ def get_processed_data(database_path, tbls_to_agg, tbls_to_resample,
         hdata.resample_table(i, on='Date', write_to_file=write_to_csv)
 
     if return_outputs:
-        return (hdata.get_export_date,
+        return (hdata.get_export_date(),
                 hdata.get_all_aggregates(),
                 hdata.get_all_resamples())
 
@@ -700,7 +690,7 @@ def load_processed_data(agg_tables=TB_OF_INTEREST, resample_tables=['Running'],
     if verbose:
         print('Available db files:\n')
         for i in db_list:
-            print(i, '\n')
+            print(i)
         print('Reading from... {0}'.format(most_recent_ver))
 
     return get_processed_data(most_recent_ver, tbls_to_agg=agg_tables,
