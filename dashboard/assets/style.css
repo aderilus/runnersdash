@@ -1,0 +1,41 @@
+.card-header h6{
+    margin-bottom: 0rem;
+}
+
+.dashheader {
+    height: 4rem;
+    padding: 3rem 3rem 3rem 3rem;
+    background-color:lavender;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+}
+
+.dashheader h5 {
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.dashheader h6{
+    font-size: 0.85rem;
+    font-weight: 300;
+}
+
+.nav-buttons {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.testmaincontainer {
+    background-color:dimgray;
+    /* padding: 10rem; */
+}
+
+.testleftcol {
+    background-color:powderblue;
+}
+
+.testrightcol {
+    background-color:honeydew;
+}
+  

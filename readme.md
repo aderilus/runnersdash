@@ -27,4 +27,7 @@ git clone https://github.com/nadinetab/runnersdash.git
     python extractapplehealth.py /path/to/export.xml
     ```
 
-<!--- TO-DO: Add a list of dependencies --->
+<!--- 
+TO-DO: 
+- Add list of available visualizations?
+--->
