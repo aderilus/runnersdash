@@ -74,8 +74,8 @@ class AppleHealthExtraction(object):
             os.makedirs(dbpath)
         self.db_name = os.path.join(dbpath, self.datestring + '_applehealth.db')
 
-    def get_elements(self):
-        """ Helper function for extract_data().
+    def get_unique_tags(self):
+        """ Helper function for extract_data() and get_toplevel_tags().
         Returns a list of the tags of nodes to extract.
         """
         # Get tags of all nodes
@@ -85,6 +85,19 @@ class AppleHealthExtraction(object):
         self.uniquetags = list(self.uniquetags - set(ELEMENTS_TO_EXCLUDE))
 
         return self.uniquetags
+
+    def get_toplevel_tags(self):
+        """ Get tags associated with nodes that are direct children of 
+        the ElementTree root.
+        """
+        unique = self.get_unique_tags()
+        top_level_nodes = []
+
+        for i in unique: 
+            if self.root.find(f'./{i}') is not None:
+                top_level_nodes.append(i)
+        
+        return top_level_nodes
 
     def extract_to_table(self, tag):
         """ Helper function for extract_data().
@@ -162,13 +175,13 @@ class AppleHealthExtraction(object):
 
     def extract_data(self):
         """ Extracts to various tables information from nodes of the
-        ElementTree with matching tags specified by `get_elements` function.
+        ElementTree with matching tags specified by `get_unique_tags` function.
 
         The resulting tables are stored under a database .db file, the name of
         which is specified by the class variable `self.db_name`.
         """
         # Get list of elements
-        elements_to_extract = self.get_elements()
+        elements_to_extract = self.get_unique_tags()
 
         for elem in elements_to_extract:
             self.extract_to_table(elem)
