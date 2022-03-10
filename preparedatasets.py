@@ -198,8 +198,8 @@ class DatasetPrep(object):
         # Use in rename_column_with_unit
         self.colname_prefix = {'Running': ['Total Duration', 'Total Distance',
                                            'Total Energy Burned From Run'],
-                               'VO2Max': ['VO2Max'],
-                               'BodyMass': ['BodyMass'],
+                               'VO2Max': ['Avg. VO2Max'],
+                               'BodyMass': ['Avg. BodyMass'],
                                'MenstrualFlow': ['MenstrualFlow'],
                                'RestingHeartRate': ['Avg. Resting HR']}
 
