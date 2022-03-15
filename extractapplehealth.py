@@ -172,7 +172,7 @@ class AppleHealthExtraction(object):
         self.num_nodes_by_elem[workoutchild.tag] += 1
 
     @func_timer
-    def extract_workout_data(self, workout_tag="Workout"):
+    def extract_workout_elems(self, workout_tag="Workout"):
         """ Extracts all elements with tag = 'Workout' from the tree.
         For each Workout type (indicated by attribute 'workoutActivityType'),
         creates a table of the 'Workout' elements of the same type.
@@ -236,6 +236,21 @@ class AppleHealthExtraction(object):
                     errmsg = "Have not implemented support for child node of {0} with tag '{1}'. \
                             Add the tag {0} to 'exclude' parameter of AppleHealthExtraction constructor."
                     raise ValueError(errmsg.format("Workout", child.tag))
+
+    @func_timer
+    def extract_record_elements(self, record_tag="Record"):
+        """
+        """
+        for i, node in enumerate(self.root.findall(f"./{record_tag}")):
+            for p in PREFIX_TO_STRIP[record_tag]:
+                tblname = node.attrib[TYPE_COL[record_tag]].removeprefix(p)
+            if tblname not in self.all_tables.keys():
+                self.all_tables[tblname] = pd.DataFrame()
+                self.num_nodes_by_elem[tblname] = 0
+
+            self.num_nodes_by_elem[tblname] += 1  # Update node count
+
+        return
 
     @func_timer
     def extract_childless_elem_to_table(self, tag, rootnode=None, table_name=""):
@@ -460,7 +475,7 @@ class AppleHealthExtraction(object):
                 print(msg, end=' ', flush=True)
 
             if elem == "Workout":
-                self.extract_workout_data()
+                self.extract_workout_elems()
             elif elem == "Record":
                 pass
             elif elem == "Correlation":
@@ -470,8 +485,8 @@ class AppleHealthExtraction(object):
             else:
                 self.extract_childless_elem_to_table(elem)
 
-        for tname, table in self.all_tables.items():
-            self.dataframe_to_sql(table, tname, ifexists='replace')
+        # for tname, table in self.all_tables.items():
+        #     self.dataframe_to_sql(table, tname, ifexists='replace')
 
         # Timer stats
         self.program_end_time = time.time()
