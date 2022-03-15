@@ -6,7 +6,8 @@ from utils import (get_latest_monthly_agg,
                    get_column_extremas,
                    MONTHS_MAP)
 
-y1_offset = 15
+y1_offset = 10
+y2_offset = 2
 
 year_time_series = dcc.Graph(id="year-time-series")
 
@@ -51,7 +52,7 @@ def build_yearview_timeseries(input_year, y1col, y2col=None):
 
     fig.update_yaxes(
         secondary_y=False,
-        range=[floor(y1_min), ceil(y1_max) + y1_offset],
+        range=[floor(y1_min), ceil(y1_max + y1_offset)],
         title_text=y1col,
     )
 
@@ -63,6 +64,11 @@ def build_yearview_timeseries(input_year, y1col, y2col=None):
                        name=y2col, mode='lines+markers',
                        connectgaps=True),
             secondary_y=True,
+        )
+
+        fig.update_yaxes(
+            secondary_y=True,
+            range=[floor(y2_min - y2_offset), ceil(y2_max + y2_offset)]
         )
 
     return fig
