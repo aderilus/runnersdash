@@ -23,19 +23,36 @@ import csv
 import time
 import pandas as pd
 import xml.etree.ElementTree as ET
+import logging
 
 import healthdatabase as hd
 
 from itertools import islice
 from datetime import datetime
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 
+CURRENT_TIME = datetime.now().strftime("%Y%m%d_%H%M%S")
 CREATE_SUBTABLES_FOR = ['Record', 'Workout']
 PREFIX_TO_STRIP = dict(zip(CREATE_SUBTABLES_FOR, [['HKQuantityTypeIdentifier', 'HKDataType', 'HKCategoryTypeIdentifier'],
                                                   ['HKWorkoutActivityType']]))
 TYPE_COL = dict(zip(CREATE_SUBTABLES_FOR, ['type', 'workoutActivityType']))
 
 VERBOSE = True
+
+
+def func_timer(func):
+    def function_wrapper(*args, **kwargs):
+        start = time.time()
+        func(*args, **kwargs)
+        end = time.time()
+        run_time = end - start
+
+        # Print and log output
+        msg = "Elapsed time was {:.5f} seconds".format(run_time)
+        logging.info(msg)
+        if VERBOSE:
+            print(msg, flush=True)
+    return function_wrapper
 
 
 class AppleHealthExtraction(object):
@@ -52,6 +69,7 @@ class AppleHealthExtraction(object):
         self.elements_to_extract = []
         self.all_tables = {}
         self.time_per_elem = {}
+        self.tosql_time_per_elem = {}
         self.program_start_time = time.time()
         self.program_end_time = 0
         self.total_elapsed_time = 0
@@ -84,6 +102,17 @@ class AppleHealthExtraction(object):
         # SQLAlchemy engine
         self.engine = create_engine(f'sqlite:////{self.db_name}')
 
+        # Log configs
+        log_path = os.path.join(os.getcwd(), 'logs/')
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+        log_suffix = 'db_' + self.datestring + '_run' + CURRENT_TIME + '.log'
+        self.log_file_name = os.path.join(log_path, log_suffix)
+        logging.basicConfig(filename=self.log_file_name, encoding='utf-8', level=logging.INFO)
+
+        # Log associated output file
+        logging.info("export.xml export date: {}".format(self.exportdate))
+
     def get_unique_tags(self):
         """ Helper function for extract_data() and get_toplevel_tags().
         Returns a list of the tags of nodes to extract.
@@ -107,7 +136,6 @@ class AppleHealthExtraction(object):
 
     def get_subtree(self, node):
         """ Depth-first tree traversal.
-        Helper function for extract_tag_from_tree().
         """
         for subelem in node.findall('./'):
             yield from self.get_subtree(subelem)
@@ -140,7 +168,100 @@ class AppleHealthExtraction(object):
             tableref = self.all_tables[workoutchild.tag]
             self.all_tables[workoutchild.tag] = pd.concat([tableref, df],
                                                           ignore_index=True)
+        # Update node count for Workout node child
+        self.num_nodes_by_elem[workoutchild.tag] += 1
 
+    @func_timer
+    def extract_workout_data(self, workout_tag="Workout"):
+        """ Extracts all elements with tag = 'Workout' from the tree.
+        For each Workout type (indicated by attribute 'workoutActivityType'),
+        creates a table of the 'Workout' elements of the same type.
+        Also creates two other tables: 'WorkoutEvent' and 'WorkoutRoute'.
+        """
+        # initialize node count for tables 'WorkoutEvent' and 'WorkoutRoute'
+        self.num_nodes_by_elem['WorkoutEvent'] = 0
+        self.num_nodes_by_elem['WorkoutRoute'] = 0
+
+        for i, node in enumerate(self.root.findall(f'./{workout_tag}'), start=1):
+
+            for p in PREFIX_TO_STRIP[workout_tag]:
+                tblname = node.attrib[TYPE_COL[workout_tag]].removeprefix(p)
+            if tblname not in self.all_tables.keys():
+                self.all_tables[tblname] = pd.DataFrame()
+                self.num_nodes_by_elem[tblname] = 0
+
+            self.all_tables[tblname] = pd.concat([self.all_tables[tblname],
+                                                  pd.DataFrame([node.attrib])], ignore_index=True)
+            idx = len(self.all_tables[tblname]) - 1
+            self.num_nodes_by_elem[tblname] += 1
+
+            workout_route_queue = []
+
+            for child in self.get_subtree(node):
+
+                if child.tag == workout_tag:
+                    pass
+                elif child.tag == "MetadataEntry":
+                    if self.check_if_workout_route(child):
+                        workout_route_queue.append(child)
+                    else:
+                        self.all_tables[tblname].loc[idx, child.attrib['key']] = child.attrib['value']
+                elif child.tag == "FileReference":
+                    workout_route_queue.append(child)
+                elif child.tag in ["WorkoutEvent", "WorkoutRoute"]:
+                    self.all_tables[tblname].loc[idx, child.tag] = True
+                    self.add_workout_property(child, tblname, idx)
+
+                    if child.tag == "WorkoutRoute":
+                        # get_subtree has traversed through the children of
+                        # this current WorkoutRoute node.
+                        while workout_route_queue:
+                            route_child = workout_route_queue[0]
+
+                            if route_child.tag == "FileReference":
+                                colname = 'FilePath'
+                                value_key = 'path'
+                            else:  # tag is 'MetadataEntry'
+                                colname = route_child.attrib['key']
+                                value_key = 'value'
+
+                            # Update WorkoutRoute node with child data
+                            route_idx = len(self.all_tables[child.tag]) - 1
+                            route_val = route_child.attrib[value_key]
+                            self.all_tables[child.tag].loc[route_idx, colname] = route_val
+
+                            # Update workout_route_queue
+                            workout_route_queue.pop(0)
+                else:
+                    errmsg = "Have not implemented support for child node of {0} with tag '{1}'. \
+                            Add the tag {0} to 'exclude' parameter of AppleHealthExtraction constructor."
+                    raise ValueError(errmsg.format("Workout", child.tag))
+
+    @func_timer
+    def extract_childless_elem_to_table(self, tag, rootnode=None, table_name=""):
+        """ Extracts attributes of (childless) Elements with tag = 'tag' to a
+        table in all_tables[tag].
+        """
+        if not rootnode:
+            rootnode = self.root
+
+        if not table_name:
+            table_name = tag
+
+        if table_name not in self.all_tables.keys():
+            self.all_tables[table_name] = pd.DataFrame()
+
+        for i, node in enumerate(rootnode.findall(f"./{tag}"), start=1):
+
+            current_node = pd.DataFrame([node.attrib])
+            temp_ref = self.all_tables[table_name]
+            self.all_tables[table_name] = pd.concat([temp_ref, current_node],
+                                                    ignore_index=True)
+
+        # Update node count
+        self.num_nodes_by_elem[table_name] = i
+
+    @func_timer
     def extract_tag_from_tree(self, tag):
         """ Extract all (top-level) nodes with tag 'tag' from the tree.
         Creates a DataFrame and stores it in all_tables dictionary with
@@ -149,12 +270,6 @@ class AppleHealthExtraction(object):
 
         if tag not in self.get_top_level_tags():
             raise ValueError(f"{tag} is not a top-level node.")
-
-        if self.verbose:
-            print("Extracting {0}......".format(tag), end=' ', flush=True)
-
-        # Start Timer
-        start_time = time.time()
 
         # Iterates through top level nodes
         for i, node in enumerate(self.root.findall(f"./{tag}"), start=1):
@@ -227,26 +342,19 @@ class AppleHealthExtraction(object):
                     # while len(bpm_queue) > 0:
                     #     bpm_node = bpm_queue[0]
                     #     bpm_idx = len(self.all_tables[bpm_node.tag]) - 1
-                    #     self.all_tables[bpm_node.tag].loc[bpm_idx, f"{child.tag} index"] = idx
+                    #     self.all_tables[bpm_node.tag].loc[bpm_idx,
+                    #                               f"{child.tag} index"] = idx
                     pass
                 elif child.tag == tag:
                     pass
                 else:
                     errmsg = "Have not implemented support for child node of {0} with tag '{1}'. \
-                            Add the tag {0} to 'exclude' parameter of AppleHealthExtract constructor."
+                            Add the tag {0} to 'exclude' parameter of AppleHealthExtraction constructor."
                     raise ValueError(errmsg.format(tag, child.tag))
-
-
-
-        # End timer
-        end_time = time.time()
-        self.time_per_elem[tag] = end_time - start_time
 
         self.num_nodes_by_elem[tag] = i
 
-        if self.verbose:
-            print("Elapsed extraction time was %.5g seconds" % self.time_per_elem[tag], flush=True)
-
+    @func_timer
     def dataframe_to_sql(self, df, table_name, ifexists='fail'):
         """ Feeds entries from DataFrame to a new or existing table
         in a database with name '{table_name}'.
@@ -258,20 +366,8 @@ class AppleHealthExtraction(object):
         if self.verbose:
             print("Writing to database {0}......".format(table_name), end=' ', flush=True)
 
-        # # Start time
-        # start_time = time.time()
-
         with self.engine.begin() as conn:
             df.to_sql(table_name, con=conn, if_exists=ifexists)
-            # # Get number of entries for this element/tag
-            # self.num_nodes_by_elem[table_name] = db.get_table_count(table_name)
-
-        # # End timer
-        # end_time = time.time()
-        # self.tosql_time_per_elem[table_name] = end_time - start_time
-
-        # if self.verbose:
-        #     print("Time to write to SQL table was %.5g seconds" % self.tosql_time_per_elem[table_name], flush=True)
 
     def extract_to_table(self, tag):
         """ DEPRECATED. Helper function for extract_data().
@@ -358,7 +454,21 @@ class AppleHealthExtraction(object):
         self.elements_to_extract = list(set(self.get_top_level_tags()) - set(self.exclude))
 
         for elem in self.elements_to_extract:
-            self.extract_tag_from_tree(elem)
+            msg = "Extracting {0}......".format(elem)
+            logging.info(msg)
+            if self.verbose:
+                print(msg, end=' ', flush=True)
+
+            if elem == "Workout":
+                self.extract_workout_data()
+            elif elem == "Record":
+                pass
+            elif elem == "Correlation":
+                pass
+            elif elem == "Audiogram":
+                pass
+            else:
+                self.extract_childless_elem_to_table(elem)
 
         for tname, table in self.all_tables.items():
             self.dataframe_to_sql(table, tname, ifexists='replace')
@@ -367,30 +477,34 @@ class AppleHealthExtraction(object):
         self.program_end_time = time.time()
         self.total_elapsed_time = self.program_end_time - self.program_start_time
 
-    def print_results(self):
-        """ Reports extraction results such as:
+        # Log results
+        self.log_results()
+
+    def log_results(self):
+        """ Reports extraction results in a log file and in the terminal
+        output such as:
             - Total time elapsed (s) extracting a specific tag
             - Number of entries inside a table
             - File name of resulting database.
-
-        Writes report to a CSV file under subdirectory 'reports/'.
         """
-        print("\nTotal time elapsed: {ttime} seconds\n".format(ttime=self.total_elapsed_time))
-        print("There are {n} tables inside {database}".format(n=len(self.all_tables.keys()), database=self.db_name))
+        time_elapsed_msg = "Total time elapsed: {0} seconds\n".format(self.total_elapsed_time)
+        num_tables_msg = "There are {0} tables inside {1}".format(len(self.all_tables.keys()), self.db_name)
+
+        # Log
+        logging.info(time_elapsed_msg)
+        logging.info(num_tables_msg)
+
+        # Print
+        if self.verbose:
+            print('\n' + time_elapsed_msg)
+            print(num_tables_msg)
 
         for tag, count in self.num_nodes_by_elem.items():
-            print("There are {m} entries for table {tablename}".format(m=count, tablename=tag), flush=True)
+            num_entries_msg = "There are {0} entries for table {1}".format(count, tag)
+            logging.info(num_entries_msg)
 
-        # Write to file
-        reportpath = os.path.join(os.getcwd(), "reports/")
-        if not os.path.exists(reportpath):
-            os.makedirs(reportpath)
-        report_name = os.path.join(reportpath, self.datestring + '_report.csv')
-        with open(report_name, 'w') as report:
-            print("\nWriting to file {name}...... ".format(name=report_name), flush=True)
-            writer = csv.writer(report, delimiter=",")
-            writer.writerow(['Table name', 'Num. entries', 'Elapsed time (s)'])
-            writer.writerows([[t, self.num_nodes_by_elem[t], self.time_per_elem[t]] for t in self.elements_to_extract])
+            if self.verbose:
+                print(num_entries_msg, flush=True)
 
 
 if __name__ == '__main__':
@@ -407,4 +521,3 @@ if __name__ == '__main__':
 
     tree = AppleHealthExtraction(xml_path, exclude=['Record', 'Correlation', 'Audiogram'])
     tree.extract_data()
-    tree.print_results()
