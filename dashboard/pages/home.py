@@ -13,6 +13,7 @@ from dashboard.layout.weekstats import (week_stat_container,
                                         week_time_series)
 from dashboard.layout.monthstats import (month_stat_container,
                                          month_time_series)
+from dashboard.layout.yearstats import year_time_series
 
 # --- LOAD DATA --- #
 weeklyagg = get_latest_weekly_agg()
@@ -62,6 +63,7 @@ y2_picker = dcc.Dropdown(
     options=[
         {"label": i.split('(')[0], "value": i} for i in y2_options
     ],
+    value=y2_options[0],
     placeholder="y2",
     id='time-series-y2',
 )
@@ -96,10 +98,10 @@ month_card = dbc.Card(
 
 year_card = dbc.Card(
     children=[
-        # dbc.CardHeader(html.H6("Year view")),
+        dbc.CardHeader(html.H6("Year view")),
         dbc.CardBody(
             [
-                html.P("Hello hello"),
+                year_time_series
             ],
         ),
     ]
@@ -123,6 +125,13 @@ month_col = dbc.Col(
         month_card
     ],
     width={"size": row12_leftcol_size, "order": "first"},
+)
+
+# Row 3, left col
+year_col = dbc.Col(
+    children=[
+
+    ],
 )
 
 

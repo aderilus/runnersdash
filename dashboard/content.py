@@ -15,6 +15,7 @@ from dashboard.pages import home, heatmapview
 from dashboard.layout.callbacks import nav_callbacks
 from dashboard.layout.callbacks import weekstats_callbacks
 from dashboard.layout.callbacks import monthstats_callbacks
+from dashboard.layout.callbacks import yearstats_callbacks
 from dashboard.layout.callbacks import heatmap_callbacks
 
 # left_col = dbc.Col(

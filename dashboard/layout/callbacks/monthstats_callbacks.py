@@ -4,9 +4,9 @@
 import math
 from dash.dependencies import Input, Output
 from dashboard.index import app
+from dashboard.layout.monthstats import build_monthly_timeseries, get_monthly_stats
 from utils import (COLMAPPER,
                    format_pace, get_unit_from_string)
-from dashboard.layout.monthstats import build_monthly_timeseries, get_monthly_stats
 
 
 @app.callback(
