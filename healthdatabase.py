@@ -68,7 +68,8 @@ class HealthDatabase(object):
                      'HKWorkoutActivityTypeRunning'. If we are creating
                      sub-tables based on this column and if
                      remove_prefix = 'HKWorkoutActivityType', the newly
-                     created tables will be named 'Barre' and 'Running' instead.
+                     created tables will be named 'Barre' and 'Running'
+                     instead.
 
         """
         created_tables = []
@@ -122,3 +123,23 @@ class HealthDatabase(object):
         count = self.cursor.fetchone()
 
         return count[0]
+
+    def get_table_list(self):
+        """ Returns a list of all tables in the database.
+        """
+        query = "SELECT name FROM sqlite_schema WHERE type = 'table'"
+        tuplelist = self.cursor.execute(query).fetchall()
+        tablelist = [i[0] for i in tuplelist]
+
+        return tablelist
+
+    def get_table_cols(self, table_name):
+        """ Returns the given table's column information as a
+        dictionary keyed by the column name and its data type
+        as the value.
+        """
+        query = "PRAGMA table_info('{}')".format(table_name)
+        info_list = self.cursor.execute(query).fetchall()
+        cols = [(i[1], i[2]) for i in info_list]
+
+        return dict(cols)
