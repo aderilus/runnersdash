@@ -48,6 +48,8 @@ python preparedatasets.py data/{export_date}_applehealth.db
 
 where `export_date` is the ExportDate of the export.xml file formatted as "YYYYmmdd".
 
+Note: `extractapplehealth.py` stores output database file in the `data/` subdirectory of `runnersdash/`.
+
 ### 3. Launch dashboard
 Related file(s): `app.py`
 
