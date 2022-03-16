@@ -1,8 +1,19 @@
 # Runner's Dash
 
+!['Screenshot'](screenshots/20220316_screenshot.gif)
+
+## Implemented visualizations
+1. Time series graphs, across a week, month, and year.
+    - Total Distance
+    - Total Duration
+    - Avg. Resting Heart Rate
+    - Avg. VO2Max (if available)
+    - Avg. Weight (labeled as 'BodyMass')
+1. Calendar heatmap of running across all available years, where x = Months, y = Days, and z = ['Total Distance', 'Avg. Pace'].
+
 ## What it does
 1. Extracts health data from exported Apple Health (XML) raw data and stores them on a local database.
-2. Uses Dash framework to create a web-based dashboard visualizing running and other health metrics.
+2. Uses Dash framework to create a web-based dashboard visualizing running metrics.
 
 ## Installation
 Clone this repository under your chosen directory
