@@ -9,3 +9,5 @@ apple_health_export/
 __pycache__/
 data/
 logs/
+screenshots/*.svg
+screenshots/*.png
