@@ -3,9 +3,10 @@
 !['Screenshot'](screenshots/2022-03-17_screenshot.gif)
 
 ## Implemented visualizations
-1. Time series graphs, across a week, month, and year.
+1. Time series graphs across a year, with both weekly and monthly frequency.
     - Total Distance
     - Total Duration
+    - Avg. Pace
     - Avg. Resting Heart Rate
     - Avg. VO2Max (if available)
     - Avg. Weight (labeled as 'BodyMass')
