@@ -36,7 +36,7 @@ timeseriesplate = go.layout.Template(
             'xanchor': 'left',
             'x': 0,
         },
-        'margin': dict(l=30, r=10, t=30, b=30),
+        'margin': dict(l=35, r=10, t=40, b=30),
         # https://plotly.com/python/reference/layout/xaxis/#layout-xaxis
         'xaxis': {
             'automargin': True,
@@ -64,7 +64,7 @@ timeseriesplate = go.layout.Template(
             'zerolinewidth': 1,
             'ticks': '',
             'title': {'font': {'size': 12},
-                      'standoff': 7},
+                      'standoff': 5},
         }
     }
 )

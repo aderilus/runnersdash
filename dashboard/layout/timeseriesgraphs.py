@@ -87,7 +87,7 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
         bargap=0.25,
         uniformtext_minsize=10,
         uniformtext_mode='hide',
-        margin=dict(l=5, r=3),
+        # margin=dict(l=5, r=3),
     )
 
     matching_xaxis_prop = dict(
@@ -188,7 +188,7 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None):
         bargap=0.25,
         uniformtext_minsize=10,
         uniformtext_mode='hide',
-        margin=dict(l=5, r=3),
+        # margin=dict(l=5, r=3),
     )
 
     matching_xaxis_prop = dict(
