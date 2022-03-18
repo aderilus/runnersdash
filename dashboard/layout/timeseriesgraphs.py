@@ -2,28 +2,29 @@
 
 """
 import dashboard.layout.graphing as gr
+import plotly.graph_objects as go
 from dash import dcc
 from datetime import date
 from pandas import to_datetime
 from plotly.subplots import make_subplots
-from utils import (get_latest_monthly_agg, get_latest_weekly_agg,
+from utils import (get_latest_daily_agg, get_latest_monthly_agg, get_latest_weekly_agg,
                    get_weeks_of_month, get_column_extremas,
                    MONTHS_MAP, COLMAPPER)
 
+daily_data = get_latest_daily_agg()
 weekly_data = get_latest_weekly_agg()
 monthly_data = get_latest_monthly_agg()
 
 # --- dcc COMPONENTS --- #
 highresweeklyplots = dcc.Graph(id="weekly-time-series")
-highresmonthlyplots = dcc.Graph(id="monthly-time-series")
 
 
 # --- GRAPH BUILDING ROUTINES --- #
 def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
-                                    ):
+                                    show_daily_scatter=False):
     """
     """
-    y_offset = [(0, 5), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
+    y_offset = [(0, 10), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
 
     data = weekly_data
     date_col = 'Week'
@@ -121,13 +122,48 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
 
     fig.update_layout(height=675)
 
+    # If toggled, overlay daily data onto the last two traces
+    if show_daily_scatter:
+        if input_year == max_year:
+            date_bounds = dfiltered[date_col].iloc[0]
+            trace_daily = daily_data[daily_data['Date'] >= date_bounds]
+        else:
+            trace_daily = daily_data[daily_data['Date'].dt.year == input_year]
+        fig.add_trace(
+            go.Scatter(
+                x=trace_daily['Date'],
+                y=trace_daily[y_cols[1]],
+                name=y_cols[1].split('(')[0] + 'for single run',
+                mode='markers',
+                cliponaxis=True,
+                marker=dict(color='rgba(52, 105, 167, 0.35)',
+                            symbol='circle-open'),
+                showlegend=False
+            ),
+            row=2, col=1,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=trace_daily['Date'],
+                y=trace_daily[y_cols[2]],
+                name=y_cols[2].split('(')[0] + 'for single run',
+                mode='markers',
+                cliponaxis=True,
+                marker=dict(color='rgba(212, 123, 101, 0.35)',
+                            symbol='circle-open'),
+                showlegend=False
+            ),
+            row=3, col=1,
+        )
+
     return fig
 
 
-def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None):
+def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None, show_daily_scatter=False):
     """
     """
-    y_offset = [(0, 5), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
+    y_offset = [(0, 10), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
 
     data = monthly_data
     data['Date'] = to_datetime([date(y, m, 1) for y, m in zip(data['Year'], data['Month'])], errors="coerce")
@@ -202,7 +238,7 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None):
 
     # Since cliponaxis=True for Scatter plot, this will
     # ensure marker nodes are displayed above axis lines
-    axis_layer_param = "below traces"
+    axis_layer_param = 'below traces'
 
     fig.update_layout(
         xaxis2=matching_xaxis_prop,
@@ -222,5 +258,40 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None):
                          row=i + 1, col=1)
 
     fig.update_layout(height=675)
+
+    # If toggled, overlay daily data onto the last two traces
+    if show_daily_scatter:
+        if input_year == max_year:
+            date_bounds = dfiltered[date_col].iloc[0]
+            trace_daily = daily_data[daily_data[date_col] >= date_bounds]
+        else:
+            trace_daily = daily_data[daily_data[date_col].dt.year == input_year]
+        fig.add_trace(
+            go.Scatter(
+                x=trace_daily[date_col],
+                y=trace_daily[y_cols[1]],
+                name=y_cols[1].split('(')[0] + 'for single run',
+                mode='markers',
+                cliponaxis=True,
+                marker=dict(color='rgba(52, 105, 167, 0.35)',
+                            symbol='circle-open'),
+                showlegend=False
+            ),
+            row=2, col=1,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=trace_daily[date_col],
+                y=trace_daily[y_cols[2]],
+                name=y_cols[2].split('(')[0] + 'for single run',
+                mode='markers',
+                cliponaxis=True,
+                marker=dict(color='rgba(212, 123, 101, 0.35)',
+                            symbol='circle-open'),
+                showlegend=False
+            ),
+            row=3, col=1,
+        )
 
     return fig

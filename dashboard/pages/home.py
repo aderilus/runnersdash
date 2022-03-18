@@ -11,7 +11,6 @@ from dash import html, dcc
 from utils import COLMAPPER
 from dashboard.layout.header import navbar, min_year, max_year
 from dashboard.layout.timeseriesgraphs import (highresweeklyplots,
-                                               highresmonthlyplots
                                                )
 
 
@@ -75,13 +74,6 @@ prev_year_toggle = dbc.Switch(
     label_class_name="body",
 )
 
-time_bin_type = dbc.Switch(
-    id="time-bin-toggle",
-    label="Toggle month-to-month view",
-    value=False,
-    label_class_name="body",
-)
-
 y1_options = [COLMAPPER['distance'], COLMAPPER['duration']]
 y1_picker = dcc.Dropdown(
     options=[
@@ -134,17 +126,51 @@ y_options_container = html.Div(
     ],
 )
 
+time_bin_type = dbc.Switch(
+    id="time-bin-toggle",
+    label="Toggle month-to-month view",
+    value=False,
+    label_class_name="body",
+)
+
+daily_overlay_switch = dbc.Switch(
+    id="daily-data-overlay",
+    label="Overlay scatter plot of individual run data",
+    value=False,
+    label_class_name="body",
+)
+
+# monthly_graph_options = dbc.Collapse(
+#     [
+#         dbc.Card([
+#             dbc.CardBody(
+#                 [
+#                     html.H6("Monthly view plot options",
+#                             style={"font-size": "0.90rem"}),
+#                 ],
+#             )
+#         ],)
+#     ],
+#     id="toggle-daily-overlay",
+#     is_open=False,
+# )
+
 graph_options_container = html.Div(
     children=[
         html.H6("Time-series plot options"),
         y_options_container,
         html.Div([
             time_bin_type,
-            prev_year_toggle,
+            daily_overlay_switch,
+            # monthly_graph_options,
         ], style={"padding": "0.25rem"}),
     ],
     style={"padding": "0.25rem"}
 )
+
+# -- CARD GROUPS --#
+# weekstats = dbc.CardGroup
+
 
 # --- CARDS --- #
 daily_binned_card = dbc.Card(
@@ -169,10 +195,13 @@ main_timeseries_card = dbc.Card(
         dbc.CardBody(
             [
                 html.H5([""],
-                        style={"display": "inline-block"},
-                        id="main-timeseries-title"),
+                        style={"display": "inline-block",
+                               "padding-left": "0.75rem", "padding-top": "0.05rem"},
+                        id="main-timeseries-title"
+                        ),
                 html.Div(highresweeklyplots, style={"margin-top": "0.30rem"}),
             ],
+            style={"padding-left": "5px", "padding-right": "0px"},
         ),
         dbc.CardFooter(
             [

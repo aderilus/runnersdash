@@ -18,19 +18,33 @@ def update_main_time_series_title(in_year, monthly_toggled):
     return f"Weekly running data across {in_year}"
 
 
+# @app.callback(
+#     Output("toggle-daily-overlay", "is_open"),
+#     [Input("time-bin-toggle", "value")],
+#     [State("toggle-daily-overlay", "is_open")]
+# )
+# def toggle_daily_overlay(monthly_toggled, is_open):
+#     if not monthly_toggled:
+#         return False
+#     return not is_open
+
+
 @app.callback(
     Output("weekly-time-series", "figure"),
     [Input("year-slider", "value"),
      Input("time-series-y1", "value"),
      Input("time-series-y2", "value"),
      Input("time-series-y3", "value"),
-     Input("time-bin-toggle", "value")]
+     Input("time-bin-toggle", "value"),
+     Input("daily-data-overlay", "value")
+     ],
 )
-def update_weekly_time_series(in_year, y1, y2, y3, monthly_toggled):
+def update_weekly_time_series(in_year, y1, y2, y3, monthly_toggled,
+                              daily_overlay):
     if monthly_toggled:
-        fig = build_monthly_binned_across_year(in_year, y1, y2, y3)
+        fig = build_monthly_binned_across_year(in_year, y1, y2, y3, daily_overlay)
     else:
-        fig = build_weekly_binned_across_year(in_year, y1, y2, y3)
+        fig = build_weekly_binned_across_year(in_year, y1, y2, y3, daily_overlay)
     return fig
 
 
@@ -57,21 +71,9 @@ def download_weekly_time_series(svg_nclick, png_nclick, fig):
         nclick += svg_nclick
 
     if write_to_img:
-        file_path = Path(Path.cwd(), 'screenshots', f'weekly_timeseries_{nclick}.{file_format}')
-        write_image(fig, file_path, file_format, height=700)
-        msg = f"Saved as file {file_path}"
+        file_name = f'weekly_timeseries_{nclick}.{file_format}'
+        file_path = Path(Path.cwd(), 'screenshots', file_name)
+        write_image(fig, file_path, file_format, width=600, height=700)
+        msg = f"Saved as file {file_name} in /screenshots/"
 
     return msg
-
-
-# @app.callback(
-#     Output("monthly-time-series", "figure"),
-#     [Input("year-slider", "value"),
-#      Input("time-series-y1", "value"),
-#      Input("time-series-y2", "value"),
-#      Input("time-series-y3", "value"),
-#      Input("compare-prev-year", "value")]
-# )
-# def update_year_timeseries(in_year, y1, y2, y3, toggle_prev_year=None):
-#     fig = build_monthly_binned_across_year(in_year, y1, y2, y3)
-#     return fig
