@@ -1,6 +1,6 @@
 # Runner's Dash
 
-!['Screenshot'](screenshots/20220316_screenshot.gif)
+!['Currentview'](screenshots/2022-03-17 at 17.51.41.gif)
 
 ## Implemented visualizations
 1. Time series graphs, across a week, month, and year.
