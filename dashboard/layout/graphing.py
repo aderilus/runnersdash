@@ -28,7 +28,7 @@ def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
         graph_obj = go.Bar(
             x=dataframe[xcol],
             y=dataframe[ycol],
-            name=ylabel,
+            name=ylabel.split('(')[0],
             texttemplate=textplate,
             marker=marker_dict,
         )
@@ -37,7 +37,7 @@ def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
         graph_obj = go.Scatter(
             x=dataframe[xcol],
             y=dataframe[ycol],
-            name=ylabel,
+            name=ylabel.split('(')[0],
             line_shape=lineshape,
             mode='lines+markers',
             cliponaxis=True,
