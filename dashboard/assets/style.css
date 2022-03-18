@@ -1,41 +1,30 @@
+h5{
+    opacity: 85%;
+    font-weight: 300;
+    font-size: 1.25rem;
+}
+
+h6 {
+    font-weight: 500;
+    padding: 0.35rem;
+}
+
+body {
+    font-size: 0.90rem;
+}
+
 .card-header h6{
     margin-bottom: 0rem;
 }
 
-.dashheader {
-    height: 4rem;
-    padding: 3rem 3rem 3rem 3rem;
-    background-color:lavender;
-    display: flex;
-    flex-direction: column;
+.download-button-container {
+    display: inline-flex;
+    flex-direction: row;
     flex-wrap: nowrap;
+    justify-content: flex-end;
 }
 
-.dashheader h5 {
-    font-size: 1.25rem;
-    font-weight: 500;
+.downloadbutton{
+    margin: 4px;
+    opacity: 80%;
 }
-
-.dashheader h6{
-    font-size: 0.85rem;
-    font-weight: 300;
-}
-
-.nav-buttons {
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-}
-
-.testmaincontainer {
-    background-color:dimgray;
-    /* padding: 10rem; */
-}
-
-.testleftcol {
-    background-color:powderblue;
-}
-
-.testrightcol {
-    background-color:honeydew;
-}
-  
