@@ -1,6 +1,6 @@
 # Runner's Dash
 
-!['Screenshot'](screenshots/2022-03-17_screenshot.gif)
+!['Screenshot'](screenshots/2022-03-18_screenshot.gif)
 
 ## Implemented visualizations
 1. Time series graphs across a year, with both weekly and monthly frequency.
