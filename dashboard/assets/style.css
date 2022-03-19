@@ -17,6 +17,11 @@ body {
     margin-bottom: 0rem;
 }
 
+.card-group h4{
+    font-weight: 300;
+    color: #969ba2;
+}
+
 .download-button-container {
     display: inline-flex;
     flex-direction: row;

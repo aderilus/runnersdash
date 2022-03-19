@@ -1,8 +1,4 @@
-""" Home page layout definitions.
-
-TODO:
-    - Store YEAR_RANGE and similar data such as min_year and
-      max_year in browser session to pass data across files.
+""" Home page layout component definitions.
 """
 
 from calendar import month
@@ -12,6 +8,8 @@ from utils import COLMAPPER
 from dashboard.layout.header import navbar, min_year, max_year
 from dashboard.layout.timeseriesgraphs import (highresweeklyplots,
                                                )
+from dashboard.layout.statscard import (week_stats_container,
+                                        month_stats_container,)
 
 
 # --- CONSTANTS --- #
@@ -20,46 +18,6 @@ row2_leftcol_size = 8
 row2_rightcol_size = 4
 
 # --- INTERACTIVE ELEMENTS --- #
-# year_picker = dcc.Dropdown(
-#     options=[
-#         {"label": str(i), "value": i} for i in YEAR_RANGE
-#     ],
-#     value=YEAR_RANGE[-1],
-#     clearable=False,
-#     id="home-year-picker",
-# )
-
-# month_picker = dcc.Dropdown(
-#     options=[
-#         {"label": mstring, "value": mnum} for mnum, mstring in MONTHS_MAP.items()
-#     ],
-#     value=weeklyagg['Week'].iloc[-1].month,
-#     clearable=False,
-#     id="home-month-picker",
-# )
-
-# dropdown_month_year = [
-#     html.Div(
-#         [
-#             html.P("Choose month", className="lead",
-#                    style={"padding-bottom": "0rem"})
-#         ],
-#         style={"width": "40%", "float": "left",
-#                "display": "inline-block"},
-#     ),
-#     html.Div(
-#         [year_picker],
-#         style={"width": "20%", "float": "right",
-#                "display": "inline-block"}
-#     ),
-#     html.Div(
-#         [month_picker],
-#         style={"width": "25%", "float": "right",
-#                "padding-right": "1rem",
-#                "display": "inline-block"}
-#     ),
-# ]
-
 year_slider = dcc.Slider(min=min_year, max=max_year, step=1, value=max_year,
                          marks={i: str(i) for i in YEAR_RANGE},
                          id="year-slider")
@@ -168,19 +126,8 @@ graph_options_container = html.Div(
     style={"padding": "0.25rem"}
 )
 
-# -- CARD GROUPS --#
-# weekstats = dbc.CardGroup
-
-
 # --- CARDS --- #
-daily_binned_card = dbc.Card(
-    children=[
-        dbc.CardBody(
-            [
-            ],
-        ),
-    ],
-)
+
 
 main_timeseries_card = dbc.Card(
     children=[
@@ -229,6 +176,7 @@ main_timeseries_card = dbc.Card(
     ],
 )
 
+
 habits_card = dbc.Card(
     children=[
         dbc.CardHeader(html.H6("Your Running Habits in [Year]")),
@@ -253,7 +201,8 @@ module_a = dbc.Col(
 module_b = dbc.Col(
     children=[
         graph_options_container,
-        daily_binned_card,
+        week_stats_container,
+        month_stats_container,
     ],
     width={"size": row2_rightcol_size, "order": "last"},
 )
@@ -273,27 +222,6 @@ module_d = dbc.Col(
 )
 
 # --- ROWS --- #
-# row1 = dbc.Row(
-#     children=[
-#         dbc.Col(
-#             [
-#             ],
-#             width={"size": row2_leftcol_size, "offset": 0},
-#             style={"padding-top": "0.5rem"}
-#         ),
-
-#         dbc.Col(
-#             [
-#             ],
-#             width={"size": 12 - row2_leftcol_size},
-#             style={"padding-top": "0rem"}
-#         ),
-#     ],
-#     class_name="g-6 sticky-top",
-#     align="center",
-#     style={'background-color': '#fff',
-#            'opacity': '0.85'}
-# )
 
 # Row 1
 row1 = dbc.Row(
