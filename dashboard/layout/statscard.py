@@ -10,7 +10,6 @@ The template for stats summaries.
 import dash_bootstrap_components as dbc
 from dash import html
 from collections import OrderedDict
-from datetime import datetime
 from utils import (get_latest_weekly_agg,
                    get_latest_monthly_agg,
                    format_pace,
@@ -73,6 +72,8 @@ def get_list_of_stats(time_period_type, selected_time):
                 else:
                     pacemin, pacesec = (None, None)
                 stat_msg = '{:0>2d}\'{:0>2.0f}\"'.format(pacemin, pacesec)
+            elif d == "avg rhr":
+                stat_msg = '{:.0f}'.format(stat)
             else:
                 stat_msg = '{:.2f}'.format(stat)
 
@@ -142,14 +143,14 @@ week_stats_container = html.Div(
         week_stats_title,
         week_stats_cardgroup
     ],
-    style={"padding-top": "0.25rem"}
+    style={"padding-top": "1rem"}
 )
 
 
 month_stats_title = html.H6(["Select month on the plot"],
                             id="month-stats-title",
                             style={"padding-bottom": "0.25rem",
-                                   "padding-top": "0.75rem"})
+                                   "padding-top": "1rem"})
 
 month_stats_cardgroup = dbc.CardGroup(
     [

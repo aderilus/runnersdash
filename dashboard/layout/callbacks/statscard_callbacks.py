@@ -26,7 +26,7 @@ def update_weekly_stats(click_data):
         clicked_data_dump = click_data['points'][0]
         selected_date = datetime.strptime(clicked_data_dump['x'], '%Y-%m-%d')
 
-    title_msg = "Week of {}".format(selected_date.strftime('%b %d %Y'))
+    title_msg = "Week of {}".format(selected_date.strftime('%b %d, %Y'))
 
     return (*get_list_of_stats('week', selected_date), title_msg)
 
@@ -50,6 +50,6 @@ def update_monthly_stats(click_data):
         # type(clicked_data_dump['x']) is str, formatted as %Y-%m-%d
         selected_date = datetime.strptime(clicked_data_dump['x'], '%Y-%m-%d')
 
-    title_msg = "Month of {}".format(selected_date.strftime('%b %Y'))
+    title_msg = "Month of {}".format(selected_date.strftime('%b. %Y'))
 
     return (*get_list_of_stats('month', selected_date), title_msg)
