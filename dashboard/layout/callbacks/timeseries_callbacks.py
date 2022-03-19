@@ -36,7 +36,7 @@ def update_main_time_series_title(in_year, monthly_toggled):
      Input("time-series-y2", "value"),
      Input("time-series-y3", "value"),
      Input("time-bin-toggle", "value"),
-     Input("daily-data-overlay", "value")
+     Input("daily-data-overlay", "value"),
      ],
 )
 def update_weekly_time_series(in_year, y1, y2, y3, monthly_toggled,

@@ -11,6 +11,8 @@ from utils import (get_latest_daily_agg, get_latest_monthly_agg, get_latest_week
                    get_weeks_of_month, get_column_extremas,
                    MONTHS_MAP, COLMAPPER)
 
+SUBPLOT_SPACING_V = 0.08
+
 daily_data = get_latest_daily_agg()
 weekly_data = get_latest_weekly_agg()
 monthly_data = get_latest_monthly_agg()
@@ -24,7 +26,7 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
                                     show_daily_scatter=False):
     """
     """
-    y_offset = [(0, 10), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
+    y_offset = [(0, 2.5), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
 
     data = weekly_data
     date_col = 'Week'
@@ -44,7 +46,7 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
         marker_input = None
 
     fig = make_subplots(rows=3, cols=1, row_heights=[0.3] * 3,
-                        vertical_spacing=0.07)
+                        vertical_spacing=SUBPLOT_SPACING_V)
 
     fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[0],
                                 xlabel=None, ylabel=y_cols[0],
@@ -75,7 +77,7 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
             lbl = "{d:02}<br>{m}".format(m=MONTHS_MAP[w.month][:3], d=w.day)
         x_tick_labels.append(lbl)
 
-    x2_tick_labels = ["{d:02} {m}".format(m=MONTHS_MAP[i.month][:3], d=i.day) for i in x_tick_filter[date_col]]
+    x2_tick_labels = ["{d:02}<br>{m}".format(m=MONTHS_MAP[i.month][:3], d=i.day) for i in x_tick_filter[date_col]]
 
     fig.update_layout(
         xaxis1=dict(
@@ -117,7 +119,8 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
     y_extremas = [get_column_extremas(data, colname) for colname in y_cols]
 
     for i in range(len(y_cols)):
-        fig.update_yaxes(title_text=y_cols[i], range=[y_extremas[i][0] - y_offset, y_extremas[i][1] + y_offset],
+        r = [y_extremas[i][0] - y_offset[i][0], y_extremas[i][1] + y_offset[i][1]]
+        fig.update_yaxes(title_text=y_cols[i], range=r,
                          row=i + 1, col=1)
 
     fig.update_layout(height=675)
@@ -184,7 +187,7 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None, s
         marker_input = None
 
     fig = make_subplots(rows=3, cols=1, row_heights=[0.3] * 3,
-                        vertical_spacing=0.07)
+                        vertical_spacing=SUBPLOT_SPACING_V)
 
     fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[0],
                                 xlabel=None, ylabel=y_cols[0],
