@@ -8,10 +8,10 @@ from datetime import date
 from pandas import to_datetime
 from plotly.subplots import make_subplots
 from utils import (get_latest_daily_agg, get_latest_monthly_agg, get_latest_weekly_agg,
-                   get_weeks_of_month, get_column_extremas,
-                   MONTHS_MAP, COLMAPPER)
+                   get_column_extremas,
+                   MONTHS_MAP)
 
-SUBPLOT_SPACING_V = 0.08
+SUBPLOT_SPACING_V = 0.07
 
 daily_data = get_latest_daily_agg()
 weekly_data = get_latest_weekly_agg()
@@ -46,14 +46,15 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
         marker_input = None
 
     fig = make_subplots(rows=3, cols=1, row_heights=[0.3] * 3,
-                        vertical_spacing=SUBPLOT_SPACING_V)
+                        vertical_spacing=SUBPLOT_SPACING_V,
+                        shared_xaxes=True)
 
     fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[0],
                                 xlabel=None, ylabel=y_cols[0],
                                 row_idx=1, col_idx=1,
                                 width_px=None, height_px=None,
                                 marker_dict=marker_input,
-                                truncate_bar_text=True)
+                                bar_text_template='%{y:.2s}')
 
     fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[1],
                                 xlabel=None, ylabel=y_cols[1], plot_type='scatter',
@@ -99,7 +100,6 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
         ticks='outside',
         tickvals=x_tick_filter[date_col],
         ticktext=x2_tick_labels,
-        range=dfiltered[date_col].iloc[[0, -1]],
     )
 
     # Since cliponaxis=True for Scatter plot, this will
@@ -113,6 +113,11 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
         yaxis2=dict(layer=axis_layer_param),
         yaxis3=dict(layer=axis_layer_param),
     )
+
+    # Since we set shared_xaxes = True, but we still want to show tick
+    # labels for each subplot.
+    fig.layout['xaxis'].showticklabels = True
+    fig.layout['xaxis2'].showticklabels = True
 
     # Update y-axes
     # Add absolute y-scale across the years based on max y
@@ -187,14 +192,16 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None, s
         marker_input = None
 
     fig = make_subplots(rows=3, cols=1, row_heights=[0.3] * 3,
-                        vertical_spacing=SUBPLOT_SPACING_V)
+                        vertical_spacing=SUBPLOT_SPACING_V,
+                        shared_xaxes=True,
+                        )
 
     fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[0],
                                 xlabel=None, ylabel=y_cols[0],
                                 row_idx=1, col_idx=1,
                                 width_px=None, height_px=None,
                                 marker_dict=marker_input,
-                                truncate_bar_text=True)
+                                bar_text_template='%{y:.3s}')
 
     fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[1],
                                 xlabel=None, ylabel=y_cols[1], plot_type='scatter',
@@ -238,6 +245,11 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None, s
         ticktext=x_tick_labels,
         # range=dfiltered[date_col].iloc[[0, -1]],
     )
+
+    # Since we set shared_xaxes = True, but we still want to show tick
+    # labels for each subplot.
+    fig.layout['xaxis'].showticklabels = True
+    fig.layout['xaxis1'].showticklabels = True
 
     # Since cliponaxis=True for Scatter plot, this will
     # ensure marker nodes are displayed above axis lines

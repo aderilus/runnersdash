@@ -8,36 +8,50 @@ from dashboard.assets.custom_themes import timeseriesplate
 def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
                        plot_type='Bar', row_idx=None, col_idx=None,
                        width_px=None, height_px=None, marker_dict=None,
-                       lineshape='linear', truncate_bar_text=False):
+                       lineshape='linear', bar_text_template='%{y.:3s}'):
     """
     Args:
         dataframe (pd.DataFrame)
         xcol (str)
         ycol (str)
+        xlabel (str)
+        ylabel (str)
+
+    Kwargs:
+        plot_type (str): Takes in 'Bar' or 'Scatter' (not case-sensitive).
+        row_idx (int): Defines row position of plot within a subplot.
+        col_idx (int): Defines column position of plot within a subplot.
+        width_px (int): Width of the plot in px. Default is None (auto).
+        height_px (int): Height of the plot in px. Default is None.
+        marker_dict (dict): Dictionary of parameters to pass into the
+                            'marker' parameter of graph_objects.Bar
+                            constructor. Default is None.
+        lineshape (str): Passed into 'line_shape' parameter for
+                         graph_objects.Scatter constructor. Default is
+                         'linear'.
+        bar_text_template (str): Passed into 'texttemplate' parameter for
+                                 graph_objects.Bar constructor. Default
+                                 is '{y:.3f}'.
 
     Returns:
-        plotly.graph_objects figure.
+        plotly.graph_objects figure of plot_type Bar or Scatter.
     """
-    textplate = '%{y:.3f}'
-    if truncate_bar_text:
-        textplate = '%{y:.2s}'
-
     fig = plotly_fig
 
-    if plot_type in ['bar', 'Bar']:
+    if plot_type.lower() == 'bar':
         graph_obj = go.Bar(
             x=dataframe[xcol],
             y=dataframe[ycol],
-            name=ylabel.split('(')[0],
-            texttemplate=textplate,
+            name=ycol.split('(')[0],
+            texttemplate=bar_text_template,
             marker=marker_dict,
         )
 
-    elif plot_type in ['scatter', 'Scatter']:
+    elif plot_type.lower() == 'scatter':
         graph_obj = go.Scatter(
             x=dataframe[xcol],
             y=dataframe[ycol],
-            name=ylabel.split('(')[0],
+            name=ycol.split('(')[0],
             line_shape=lineshape,
             mode='lines+markers',
             cliponaxis=True,
@@ -55,7 +69,7 @@ def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
             title=xlabel,
         ),
         yaxis=dict(
-            title=ycol,
+            title=ylabel,
         )
     )
 
