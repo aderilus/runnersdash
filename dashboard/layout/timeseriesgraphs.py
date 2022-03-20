@@ -17,6 +17,7 @@ daily_data = get_latest_daily_agg()
 weekly_data = get_latest_weekly_agg()
 monthly_data = get_latest_monthly_agg()
 
+
 # --- dcc COMPONENTS --- #
 highresweeklyplots = dcc.Graph(id="weekly-time-series")
 
@@ -249,7 +250,7 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None, s
     # Since we set shared_xaxes = True, but we still want to show tick
     # labels for each subplot.
     fig.layout['xaxis'].showticklabels = True
-    fig.layout['xaxis1'].showticklabels = True
+    fig.layout['xaxis2'].showticklabels = True
 
     # Since cliponaxis=True for Scatter plot, this will
     # ensure marker nodes are displayed above axis lines
