@@ -1,8 +1,7 @@
 """ Encapsulates some common routines in building grpahs.
 """
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from dashboard.assets.custom_themes import timeseriesplate
+from dashboard.assets.custom_themes import custom_theme1
 
 
 def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
@@ -64,7 +63,7 @@ def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
     )
 
     fig.update_layout(
-        template=timeseriesplate,
+        template=custom_theme1,
         xaxis=dict(
             title=xlabel,
         ),

@@ -10,7 +10,8 @@ from dashboard.pages import home, heatmapview
 from dashboard.layout.callbacks import (nav_callbacks,
                                         timeseries_callbacks,
                                         heatmap_callbacks,
-                                        statscard_callbacks)
+                                        statscard_callbacks,
+                                        runninghabits_callbacks)
 
 
 app.layout = html.Div(

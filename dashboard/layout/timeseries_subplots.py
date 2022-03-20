@@ -89,7 +89,7 @@ def build_week_ts_subplot(input_datestring, ycol):
 nruns_in_month = dcc.Graph(id="nruns-ts-subplot")
 
 
-def build_nruns_in_month(input_datestring):
+def build_nruns_in_month(input_datestring):  # TODO
 
     if input_datestring == 'most recent':
         start_date = get_latest_weekly_agg()['Week'].iloc[-1]

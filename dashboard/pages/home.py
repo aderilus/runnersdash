@@ -11,6 +11,7 @@ from dashboard.layout.timeseriesgraphs import (highresweeklyplots,
 from dashboard.layout.statscard import (week_stats_container,
                                         month_stats_container,)
 from dashboard.layout.timeseries_subplots import week_ts_subplot
+from dashboard.layout.runninghabits import running_habit_plots
 
 
 # --- CONSTANTS --- #
@@ -18,20 +19,39 @@ YEAR_RANGE = list(range(min_year, max_year + 1))
 row2_leftcol_size = 8
 row2_rightcol_size = 4
 
-# --- INTERACTIVE ELEMENTS --- #
-year_slider = dcc.Slider(min=min_year, max=max_year, step=1, value=max_year,
-                         marks={i: str(i) for i in YEAR_RANGE},
-                         id="year-slider")
+# --- SELECT TIME --- #
+year_slider = dcc.Slider(
+    min=min_year,
+    max=max_year,
+    step=1,
+    value=max_year,
+    marks={i: str(i) for i in YEAR_RANGE},
+    id="year-slider",
+)
+
+# max_year + 1 is the associated value for "All"
+vslider_marks = [str(i) for i in YEAR_RANGE]
+vslider_marks.append("All")
+year_slider_vert = dcc.Slider(
+    min=min_year,
+    max=max_year + 1,
+    step=1,
+    value=max_year,
+    marks=dict(zip([i for i in range(min_year, max_year + 2)], vslider_marks)),
+    id="year-slider-vertical",
+    vertical=True,
+)
+
 
 # --- Y INPUT --- #
 
 # For monthly time-series
-prev_year_toggle = dbc.Switch(
-    id="compare-prev-year",
-    label="Compare against previous year",
-    value=False,
-    label_class_name="body",
-)
+# prev_year_toggle = dbc.Switch(
+#     id="compare-prev-year",
+#     label="Compare against previous year",
+#     value=False,
+#     label_class_name="body",
+# )
 
 y1_options = [COLMAPPER['distance'], COLMAPPER['duration'], COLMAPPER['menstrual flow']]
 y1_picker = dcc.Dropdown(
@@ -184,9 +204,11 @@ main_timeseries_card = dbc.Card(
 
 habits_card = dbc.Card(
     children=[
-        dbc.CardHeader(html.H6("Your Running Habits in [Year]")),
+        dbc.CardHeader(html.H6("",
+                               id="running-habits-title")),
         dbc.CardBody(
             [
+                running_habit_plots,
             ],
         ),
     ]
@@ -225,7 +247,12 @@ module_b = dbc.Col(
 # Row 2, left col
 module_c = dbc.Col(
     children=[
+        html.Div(
+            [year_slider_vert],
+            style={"padding": "0.25rem"},
+        )
     ],
+    width={"size": 1},
 )
 
 # Row 2, right col
@@ -233,7 +260,7 @@ module_d = dbc.Col(
     children=[
         habits_card,
     ],
-    class_name="g-6",
+    width={"size": 11},
 )
 
 # --- ROWS --- #
@@ -250,7 +277,8 @@ row1 = dbc.Row(
 # Row 2
 row2 = dbc.Row(
     children=[
-        module_d
+        module_c,
+        module_d,
     ],
     class_name="gy-6",
 )

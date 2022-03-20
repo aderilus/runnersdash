@@ -14,7 +14,7 @@ colorway2 = ['#3469a7', '#e78767', '#a1c497', '#e7c280']
 toggle_colorway = colorway1
 
 # https://plotly.com/python-api-reference/generated/plotly.graph_objects.layout.html?highlight=plotly%20graph_objects%20layout%20template#plotly.graph_objects.layout.Template
-timeseriesplate = go.layout.Template(
+custom_theme1 = go.layout.Template(
     layout={
         # https://plotly.com/python-api-reference/generated/plotly.graph_objects.Layout.html#plotly.graph_objects.Layout
         'coloraxis': {
@@ -69,7 +69,7 @@ timeseriesplate = go.layout.Template(
     }
 )
 
-timeseriesplate.data.bar = [
+custom_theme1.data.bar = [
     go.Bar(textfont={'family': 'Arial, Helvetica Neue, Helvetica, Sans-serif',
                      'size': 13,
                      },
@@ -86,7 +86,7 @@ timeseriesplate.data.bar = [
            ),
 ]
 
-timeseriesplate.data.scatter = [
+custom_theme1.data.scatter = [
     go.Scatter(
         connectgaps=True,
         textfont={'family': 'Arial, Helvetica Neue, Helvetica, Sans-serif',
