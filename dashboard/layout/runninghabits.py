@@ -7,7 +7,7 @@ from dash import dcc
 from pandas import Timestamp
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utils import get_resampled_runs, COLMAPPER, DAY_MAP, get_unit_from_string
+from utils import get_column_extremas, get_resampled_runs, COLMAPPER, DAY_MAP, get_unit_from_string
 from dashboard.assets.custom_themes import custom_theme1, toggle_colorway
 
 
@@ -63,12 +63,19 @@ def build_habit_plots(input_year):
         row=1, col=2,
     )
 
-    # # 
-    # fig.add_trace(
-    #     go.Histogram(
-
-    #     )
-    # )
+    # Distance per run histogram (x3, y3)
+    dist_bin_start = 0
+    dist_bin_end = max(50, get_column_extremas(dfiltered, ran)[1])
+    dist_bin_delta = 2.5
+    fig.add_trace(
+        go.Histogram(
+            x=dfiltered[ran],
+            xbins=dict(start=dist_bin_start, end=dist_bin_end, size=dist_bin_delta),
+            name="Avg. distance per run",
+            xaxis="x3",
+            yaxis="y3",
+        )
+    )
 
     # Distance per run for each day of the week (x4, y4)
     dfiltered.loc[:, 'DOW numeric'] = dfiltered.loc[:, 'Date'].copy().dt.day_of_week
@@ -119,20 +126,34 @@ def build_habit_plots(input_year):
         range=[0, 24],
     )
 
+    # xaxis3
+    dist_range_end = int(dist_bin_end / dist_bin_delta)
+    dist_bin_ticks = [i * dist_bin_delta for i in range(dist_bin_start, dist_range_end)]
+
     fig.update_layout(
         title=plot_title,
         showlegend=False,
         template=custom_theme1,
         xaxis=x1_axis_settings,  # Day of week histogram
         xaxis2=x2_axis_settings,  # Time of day histogram
-        xaxis4=x1_axis_settings,
-        xaxis5=x2_axis_settings,
+        xaxis3=dict(
+            title_text=f"{COLMAPPER['avg distance']} per run",
+            tickmode='array',
+            tickvals=[i + (dist_bin_delta / 2) for i in dist_bin_ticks],
+            ticktext=[f"[{i}, {i + dist_bin_delta - 0.01}]" for i in dist_bin_ticks],
+        ),
+        xaxis4=x1_axis_settings,  # Distance/run per day of week
+        xaxis5=x2_axis_settings,  # Distance run per hour of day
         yaxis=dict(
+            title_text="# of runs",
+        ),
+        yaxis3=dict(
             title_text="# of runs",
         ),
         yaxis4=dict(
             title_text=f"Avg. distance ({get_unit_from_string(ran)}) per run"
         ),
+        bargap=0.03,
     )
 
     fig.update_layout(
