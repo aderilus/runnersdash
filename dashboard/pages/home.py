@@ -10,6 +10,7 @@ from dashboard.layout.timeseriesgraphs import (highresweeklyplots,
                                                )
 from dashboard.layout.statscard import (week_stats_container,
                                         month_stats_container,)
+from dashboard.layout.timeseries_subplots import week_ts_subplot
 
 
 # --- CONSTANTS --- #
@@ -32,7 +33,7 @@ prev_year_toggle = dbc.Switch(
     label_class_name="body",
 )
 
-y1_options = [COLMAPPER['distance'], COLMAPPER['duration']]
+y1_options = [COLMAPPER['distance'], COLMAPPER['duration'], COLMAPPER['menstrual flow']]
 y1_picker = dcc.Dropdown(
     options=[
         {"label": i.split('(')[0], "value": i} for i in y1_options
@@ -43,7 +44,13 @@ y1_picker = dcc.Dropdown(
     id='time-series-y1',
 )
 
-y2_options = [COLMAPPER['avg pace']]
+combined_metrics = [COLMAPPER['avg pace'],
+                    COLMAPPER['avg rhr'],
+                    COLMAPPER['avg vo2'],
+                    COLMAPPER['weight'],
+                    ]
+
+y2_options = combined_metrics
 y2_picker = dcc.Dropdown(
     options=[
         {"label": i.split('(')[0], "value": i} for i in y2_options
@@ -54,7 +61,7 @@ y2_picker = dcc.Dropdown(
     clearable=False,
 )
 
-y3_options = [COLMAPPER['avg rhr'], COLMAPPER['avg vo2'], COLMAPPER['weight']]
+y3_options = combined_metrics[1:]
 y3_picker = dcc.Dropdown(
     options=[
         {"label": i.split('(')[0], "value": i} for i in y3_options
@@ -66,7 +73,6 @@ y3_picker = dcc.Dropdown(
 )
 
 # --- GRAPH OPTIONS CONTAINER --- #
-
 y_options_container = html.Div(
     [
         html.Div([y1_picker],
@@ -126,9 +132,8 @@ graph_options_container = html.Div(
     style={"padding": "0.25rem"}
 )
 
-# --- CARDS --- #
 
-
+# --- PLOT CONTAINERS/CARDS --- #
 main_timeseries_card = dbc.Card(
     children=[
         dbc.CardHeader(
@@ -187,6 +192,15 @@ habits_card = dbc.Card(
     ]
 )
 
+week_subplot_container = html.Div(
+    [week_ts_subplot],
+    style={"padding": "0.25rem", "padding-top": "1rem"}
+)
+
+month_subplot_container = html.Div(
+    [],
+    style={"padding": "0.25rem", "padding-top": "0.75rem"}
+)
 
 # --- COLUMNS --- #
 # Row 1, left col
@@ -202,6 +216,7 @@ module_b = dbc.Col(
     children=[
         graph_options_container,
         week_stats_container,
+        week_subplot_container,
         month_stats_container,
     ],
     width={"size": row2_rightcol_size, "order": "last"},

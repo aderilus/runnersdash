@@ -2,9 +2,11 @@ from dash.dependencies import Input, Output, State
 from plotly.io import write_image
 from dashboard.index import app
 from pathlib import Path
+from datetime import datetime
 from dashboard.layout.timeseriesgraphs import (build_weekly_binned_across_year,
                                                build_monthly_binned_across_year
                                                )
+from dashboard.layout.timeseries_subplots import build_week_ts_subplot
 
 
 @app.callback(
@@ -77,3 +79,25 @@ def download_weekly_time_series(svg_nclick, png_nclick, fig):
         msg = f"Saved as file {file_name} in /screenshots/"
 
     return msg
+
+
+# --- MAIN TIME SERIES SUBPLOTS --- #
+# Find associated functions and objects at timeseries_subplots.py
+
+@app.callback(
+    Output("week-ts-subplot", "figure"),
+    [Input("weekly-time-series", "clickData")],
+    prevent_initial_callback=True
+)
+def update_week_ts_subplot(click_data):
+
+    if click_data is None:
+        selected_date = 'most recent'
+    else:
+        clicked_data_dump = click_data['points'][0]
+        # type(click_data_dump) is str
+        selected_date = clicked_data_dump['x']
+
+    fig = build_week_ts_subplot(selected_date, ycol="Total Distance (km)")
+
+    return fig
