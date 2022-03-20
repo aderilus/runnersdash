@@ -129,7 +129,10 @@ def build_weekly_binned_across_year(input_year, ycol, y2col, y3col,
         fig.update_yaxes(title_text=y_cols[i], range=r,
                          row=i + 1, col=1)
 
-    fig.update_layout(height=675)
+    fig.update_layout(
+        height=675,
+        hovermode="x",
+    )
 
     # If toggled, overlay daily data onto the last two traces
     if show_daily_scatter:
@@ -273,7 +276,10 @@ def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None, s
         fig.update_yaxes(title_text=y_cols[i], range=r,
                          row=i + 1, col=1)
 
-    fig.update_layout(height=675)
+    fig.update_layout(
+        height=675,
+        hovermode="x",
+    )
 
     # If toggled, overlay daily data onto the last two traces
     if show_daily_scatter:
