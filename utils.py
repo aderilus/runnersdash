@@ -18,7 +18,8 @@ COLMAPPER = {'distance': 'Total Distance (km)',
              'avg rhr': 'Avg. Resting HR (bpm)',
              'date': 'Date',
              'week': 'Week',
-             'avg pace': 'Avg. Pace (min/km)'}
+             'avg pace': 'Avg. Pace (min/km)',
+             'menstrual flow': 'MenstrualFlow (num)'}
 DAYS_OF_WK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 DAY_MAP = dict(zip(range(1, 8), DAYS_OF_WK))  # Use date.isoweekday()
 MONTHS = ['January', 'February', 'March', 'April', 'May',
@@ -73,8 +74,7 @@ def get_unit_from_string(input):
 
 
 def format_pace(pace):
-    """ Converts pace as a decimal to minutes and seconds, formatted
-        "min\' s\"".
+    """ Converts pace as a decimal to minutes and seconds.
     """
     pace_str = str(pace)
     pace_split = pace_str.split('.')
