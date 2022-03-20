@@ -3,14 +3,19 @@
 !['Screenshot'](screenshots/2022-03-20_screenshot.gif)
 
 ## Implemented visualizations
-1. Time series graphs across a year, with both weekly and monthly frequency.
+1. Time series graphs across a year, binned weekly and monthly.
     - Total Distance
     - Total Duration
     - Avg. Pace
     - Avg. Resting Heart Rate
     - Avg. VO2Max (if available)
     - Avg. Weight (labeled as 'BodyMass')
+1. Total distance run per day across one week.
 1. Calendar heatmap of running across all available years, where x = Months, y = Days, and z = ['Total Distance', 'Avg. Pace'].
+1. Histograms (number of runs across a year/years) and a line plot of their associated avg. distance per run.
+    - Day of the Week
+    - Hour of day of run start time
+    - Total run distance
 
 ## What it does
 1. Extracts health data from exported Apple Health (XML) raw data and stores them on a local database.
