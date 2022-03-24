@@ -42,7 +42,7 @@ Related file(s): `extractapplehealth.py`
 
     b. Or if `export.zip` has been extracted somewhere else, run
     ```
-    python extractapplehealth.py /path/to/export.xml
+    python extractapplehealth.py -o /path/to/export.xml
     ```
 
 ### 2. Prepare datasets for dashboard
