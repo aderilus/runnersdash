@@ -19,16 +19,10 @@ Things to note:
 - Last tested on Mar. 2022 Apple Health data.
 - This version does not extract elements with tag = "Correlation" or
 tag = "Audiogram".
-- [BUG] This version does not extract 'InstantaneousBeatsPerMinute' elements
-properly.
-- ver 2.3:
-    - Rewrites extract_record_elements to avoid calling pd.concat() inside
-      for loop.
-    - Truncates sqlite3.OperationalError message for logs.
 - ver 2.4:
     - Rewrites extract_workout_elements and extract_childless_elements to
       avoid calling pd.concat() inside for loops.
-    - Cleans up class variables.
+    - Implements argparse.
     - No longer stores node data in DataFrames (in memory) throughout program
       runtime. DataFrame is only created in the step just before writing to
       database. After database table creation and appending, the DataFrame
@@ -38,7 +32,6 @@ properly.
 __version__ = '2.4'
 
 import argparse
-import gc
 import os
 import time
 import pandas as pd
