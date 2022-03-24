@@ -231,7 +231,6 @@ class AppleHealthExtraction(object):
 
             # Initialize queue for Workout children nodes
             workout_route_queue = []
-            workout_event_queue = []
 
             for child in self.get_subtree(node):
 
@@ -242,7 +241,8 @@ class AppleHealthExtraction(object):
                     if self.check_if_workout_route(child):
                         workout_route_queue.append(child)
                     else:  # It's a direct child of the current Workout node
-                        table_queue[nodetype][-1].update(child.attrib)
+                        new_item = {child.attrib['key']: child.attrib['value']}
+                        table_queue[nodetype][-1].update(new_item)
                 elif child.tag == "FileReference":
                     workout_route_queue.append(child)
                 elif child.tag in ["WorkoutEvent", "WorkoutRoute"]:
@@ -367,7 +367,8 @@ class AppleHealthExtraction(object):
 
             for child in self.get_subtree(node):
                 if child.tag == "MetadataEntry":
-                    table_queue[nodetype][-1] = table_queue[nodetype][-1] | child.attrib
+                    new_item = {child.attrib['key']: child.attrib['value']}
+                    table_queue[nodetype][-1].update(new_item)
                 elif child.tag == bpm_type:
                     if child.tag not in table_queue.keys():
                         table_queue[child.tag] = []
