@@ -2,6 +2,9 @@
                            `export.xml` exported from the Health app,
                            into a database.
 
+Usage:
+    $ python extractapplehealth.py OPTIONAL[-o path/to/export.xml]
+
 Output(s):
     1. A database (.db) file under subdirectory `data/` containing
        all health data organized into tables, grouped by their
@@ -16,13 +19,26 @@ Things to note:
 - Last tested on Mar. 2022 Apple Health data.
 - This version does not extract elements with tag = "Correlation" or
 tag = "Audiogram".
-- This version does not extract 'InstantaneousBeatsPerMinute' elements
+- [BUG] This version does not extract 'InstantaneousBeatsPerMinute' elements
 properly.
+- ver 2.3:
+    - Rewrites extract_record_elements to avoid calling pd.concat() inside
+      for loop.
+    - Truncates sqlite3.OperationalError message for logs.
+- ver 2.4:
+    - Rewrites extract_workout_elements and extract_childless_elements to
+      avoid calling pd.concat() inside for loops.
+    - Cleans up class variables.
+    - No longer stores node data in DataFrames (in memory) throughout program
+      runtime. DataFrame is only created in the step just before writing to
+      database. After database table creation and appending, the DataFrame
+      is no longer referenced, to be garbage collected.
 """
 
-__version__ = '2.2'
+__version__ = '2.4'
 
-import sys
+import argparse
+import gc
 import os
 import time
 import pandas as pd
@@ -65,28 +81,23 @@ class AppleHealthExtraction(object):
     def __init__(self, input_path, append_to_existing_db=False,
                  exclude=[], verbose=VERBOSE, append_ver=False):
 
-        # --- DEPRECATED? --- #
-        self.tablelist = []
-        # ---
+        self.program_start_time = time.time()  # Start program timer
+        self.export_path = os.path.abspath(input_path)  # export.xml path
 
         self.append_to_db = append_to_existing_db
         self.append_ver = append_ver
         self.verbose = verbose
         self.exclude = exclude
-        self.num_nodes_by_elem = {}
-        self.elements_to_extract = []
-        self.all_tables = {}
-        self.record_tables = []
-        self.table_error_count = {}
+
+        self.num_nodes_by_elem = {}  # Node counter
+        self.elements_to_extract = []  # Tag list of top level Elements to extract
+        self.table_error_count = {}  # Error count for table in the database
+        # Total time taken to extract info from all nodes of each Element type
         self.extract_time_per_elem = {}
+        # Time taken to write to database all nodes of each Element type
         self.tosql_time_per_elem = {}
-        self.program_start_time = time.time()
         self.program_end_time = 0
         self.total_elapsed_time = 0
-        self.export_path = os.path.abspath(input_path)
-
-        # Contains the DataFrames created in extract_tag_from_tree
-        self.all_tables = {}
 
         if self.verbose:
             print("\nReading from: " + self.export_path)
@@ -178,99 +189,137 @@ class AppleHealthExtraction(object):
             return True
         return False
 
-    def add_workout_property(self, workoutchild, workouttype, workoutidx):
-        """ Adds data from a node 'workoutchild' to a DataFrame in all_tables.
-        This function adds two columns: 'workoutType' and 'workoutIndex'
-        mapping to values 'workouttype' and 'workoutidx' respectively. Does not
-        return anything.
-        """
-        df = pd.DataFrame([workoutchild.attrib])
-        df.loc[0, ['workoutType', 'workoutIndex']] = [workouttype, workoutidx]
-
-        if workoutchild.tag not in self.all_tables.keys():
-            self.all_tables[workoutchild.tag] = df
-        else:
-            tableref = self.all_tables[workoutchild.tag]
-            self.all_tables[workoutchild.tag] = pd.concat([tableref, df],
-                                                          ignore_index=True)
-        # Update node count for Workout node child
-        self.num_nodes_by_elem[workoutchild.tag] += 1
-
     @func_timer
-    def extract_workout_elements(self, workout_tag="Workout"):
+    def extract_workout_elements(self, workout_tag="Workout", chunk_size=5000):
         """ Extracts all elements with tag = 'Workout' from the tree.
         For each Workout type (indicated by attribute 'workoutActivityType'),
         creates a table of the 'Workout' elements of the same type.
         Also creates two other tables: 'WorkoutEvent' and 'WorkoutRoute'.
+
+        Kwargs:
+            workout_tag (str): The node tag associated with Workout nodes.
+                               Default is "Workout".
+            chunk_size (int): The iteration number of the loop through 'Workout'
+                              nodes. For every nth iteration, existing 'Workout'
+                              subtables will written to the SQL database file.
+                              And their list within table_queue will be reset
+                              to an empty list. Default is 5000.
         """
-        # initialize node count for tables 'WorkoutEvent' and 'WorkoutRoute'
-        self.num_nodes_by_elem['WorkoutEvent'] = 0
-        self.num_nodes_by_elem['WorkoutRoute'] = 0
+
+        # Initialize queue to dataframe_to_sql() function call
+        # This dictionary is keyed by the node type tag and
+        # holds a list of node.attrib, each of type dict.
+        table_queue = {}
 
         for i, node in enumerate(self.root.findall(f'./{workout_tag}'), start=1):
+            # If i a multiple of chunk_size, write every list in table_queue
+            # to a DataFrame and call dataframe_to_sql()
+            if i % chunk_size == 0:
+                for key, node_list in table_queue.items():
+                    df = pd.DataFrame(node_list)
+                    self.dataframe_to_sql(df, table_name=key, ifexists='append')
+                    del df
+                    table_queue[key] = []  # Reset the list
 
             start = time.time()  # Start timer
 
+            # Get node.attrib['type'] and remove prefix
             for p in PREFIX_TO_STRIP[workout_tag]:
-                tblname = node.attrib[TYPE_COL[workout_tag]].removeprefix(p)
+                nodetype = node.attrib[TYPE_COL[workout_tag]].removeprefix(p)
 
-            if tblname not in self.all_tables.keys():
-                self.all_tables[tblname] = pd.DataFrame()
-                self.num_nodes_by_elem[tblname] = 0  # Node counter
-                self.extract_time_per_elem[tblname] = 0  # Node timer
+            if nodetype not in table_queue.keys():
+                table_queue[nodetype] = []  # Initialize list in queue
+                self.num_nodes_by_elem[nodetype] = 0  # Node counter
+                self.extract_time_per_elem[nodetype] = 0  # Node extraction timer
 
-            self.all_tables[tblname] = pd.concat([self.all_tables[tblname],
-                                                  pd.DataFrame([node.attrib])], ignore_index=True)
-            idx = len(self.all_tables[tblname]) - 1
-            self.num_nodes_by_elem[tblname] += 1
+            # Append current node.attrib in its list in queue
+            table_queue[nodetype].append(node.attrib)
+            self.num_nodes_by_elem[nodetype] += 1
 
+            # Initialize queue for Workout children nodes
             workout_route_queue = []
+            workout_event_queue = []
 
             for child in self.get_subtree(node):
 
                 if child.tag == workout_tag:
+                    # Get subtree will also the node passed in
                     pass
                 elif child.tag == "MetadataEntry":
                     if self.check_if_workout_route(child):
                         workout_route_queue.append(child)
-                    else:
-                        self.all_tables[tblname].loc[idx, child.attrib['key']] = child.attrib['value']
+                    else:  # It's a direct child of the current Workout node
+                        table_queue[nodetype][-1].update(child.attrib)
                 elif child.tag == "FileReference":
                     workout_route_queue.append(child)
                 elif child.tag in ["WorkoutEvent", "WorkoutRoute"]:
-                    self.all_tables[tblname].loc[idx, child.tag] = True
-                    self.add_workout_property(child, tblname, idx)
+                    # If not found in table_queue yet, initialize a few things
+                    if child.tag not in table_queue.keys():
+                        table_queue[child.tag] = []
+                        self.num_nodes_by_elem[child.tag] = 0
+                        self.extract_time_per_elem[child.tag] = 0
 
+                    child_start = time.time()  # Start timer
+
+                    # Add key,val (child.tag, True) to current node attrib
+                    table_queue[nodetype][-1].update({child.tag: True})
+
+                    # Update current child attributes with new items
+                    new_items = {'workoutType': nodetype,
+                                 'workoutIndex': self.num_nodes_by_elem[nodetype] - 1}
+                    new_child_attrib = child.attrib | new_items
+
+                    # Update table_queue and node counter
+                    table_queue[child.tag].append(new_child_attrib)
+                    self.num_nodes_by_elem[child.tag] += 1
+
+                    # Because WorkoutRoute can have child nodes
                     if child.tag == "WorkoutRoute":
-                        # get_subtree has traversed through the children of
-                        # this current WorkoutRoute node.
+                        # get_subtree has (depth-first) traversed through the
+                        # children of this current WorkoutRoute node.
                         while workout_route_queue:
                             route_child = workout_route_queue[0]
 
                             if route_child.tag == "FileReference":
-                                colname = 'FilePath'
+                                colname = 'filePath'
                                 value_key = 'path'
-                            else:  # tag is 'MetadataEntry'
+                            elif route_child.tag == "MetadataEntry":
                                 colname = route_child.attrib['key']
                                 value_key = 'value'
+                            else:
+                                raise ValueError(f"No support implemented for child node tag {route_child.tag} for type {nodetype}.")
 
-                            # Update WorkoutRoute node with child data
-                            route_idx = len(self.all_tables[child.tag]) - 1
-                            route_val = route_child.attrib[value_key]
-                            self.all_tables[child.tag].loc[route_idx, colname] = route_val
+                            # Update WorkoutRoute node with its child data
+                            route_items = {colname: route_child.attrib[value_key]}
+                            table_queue[child.tag][-1].update(route_items)
 
                             # Update workout_route_queue
                             workout_route_queue.pop(0)
+
+                    self.extract_time_per_elem[child.tag] += time.time() - child_start
                 else:
                     errmsg = "Have not implemented support for child node of {0} with tag '{1}'. \
                             Add the tag {0} to 'exclude' parameter of AppleHealthExtraction constructor."
-                    raise ValueError(errmsg.format("Workout", child.tag))
+                    raise ValueError(errmsg.format(workout_tag, child.tag))
 
                 end = time.time()  # End timer
-                self.extract_time_per_elem[tblname] += end - start
+                self.extract_time_per_elem[nodetype] += end - start
+
+        # Out of loop
+        print("Exited out of loop.\n")  # TEST
+        while table_queue:
+            key = list(table_queue.keys())[0]
+            if table_queue[key]:  # If list is not empty
+                df = pd.DataFrame(table_queue[key])
+                self.dataframe_to_sql(df, table_name=key, ifexists='append')
+                del df
+            del table_queue[key]
+
+        # Make sure there are no more nodes to process
+        assert len(table_queue) == 0
 
     @func_timer
-    def extract_record_elements(self, record_tag="Record", n=5000):
+    def extract_record_elements(self, record_tag="Record", chunk_size=5000):
         """ Extracts all elements with tag = 'Record' from the tree.
         For each Record type (indicated by attribute 'type'), creates a
         table of 'Record' elements of the same type.
@@ -283,108 +332,109 @@ class AppleHealthExtraction(object):
         Kwargs:
             record_tag (str): The tag associated with 'Record' nodes.
                               Defaults to "Record".
-            n (int): The iteration number of the loop through 'Record'
-                     nodes. For every nth iteration, existing 'Record'
-                     subtables will written to the SQL database file.
-                     And their DataFrames will be reset as an empty
-                     DataFrames.
+            chunk_size (int): The iteration number of the loop through 'Record'
+                              nodes. For every nth iteration, existing 'Record'
+                              subtables will written to the SQL database file.
+                              And their list within table_queue will be reset
+                              to an empty list. Default is 5000.
         """
-        # Queue of every table name to write to db file for every nth
+        val_err_msg = "Have not implemented support for node child of type {0}"
+        # Queue of every list of attributes to write to db file for every nth
         # iteration of the following loop
-        table_queue = []
+        table_queue = {}
         # InstantaneousBeatsPerMinute is a known (grand)child of Record
-        bpmname = "InstantaneousBeatsPerMinute"
-        self.all_tables[bpmname] = pd.DataFrame()
-        self.num_nodes_by_elem[bpmname] = 0
-        self.record_tables.append(bpmname)
+        bpm_type = "InstantaneousBeatsPerMinute"
 
         for i, node in enumerate(self.root.findall(f"./{record_tag}"), start=1):
-            start = time.time()  # Start timer
-            nodetype = node.attrib[TYPE_COL[record_tag]]
+            # Write chunk_size entries to SQL
+            if i % chunk_size == 0:
+                for node_type, node_list in table_queue.items():
+                    if node_list:  # If node_list is not empty
+                        df = pd.DataFrame(node_list)
+                        self.dataframe_to_sql(df, table_name=node_type, ifexists='append')
+                        table_queue[node_type] = []
+                        del df
 
+            start = time.time()  # Timer
+
+            # Get node.attrib type and remove prefix
+            nodetype = node.attrib[TYPE_COL[record_tag]]
             for p in PREFIX_TO_STRIP[record_tag]:
                 nodetype = nodetype.removeprefix(p)
 
-            if nodetype not in table_queue:
-                table_queue.append(nodetype)
+            # If this is the first occurrence
+            if nodetype not in table_queue.keys():
+                table_queue[nodetype] = []
+                self.num_nodes_by_elem[nodetype] = 0
+                self.extract_time_per_elem[nodetype] = 0
 
-            # Instantiate table if it doesn't exist
-            if nodetype not in self.all_tables.keys():
-                self.all_tables[nodetype] = pd.DataFrame()
-                self.record_tables.append(nodetype)  # Append to list of tables created under Record nodes
-                self.num_nodes_by_elem[nodetype] = 0  # Node counter
-                self.extract_time_per_elem[nodetype] = 0  # Node type timer
+            # Append current node attributes to list
+            table_queue[nodetype].append(node.attrib)
+            self.num_nodes_by_elem[nodetype] += 1
 
-            self.all_tables[nodetype] = pd.concat([self.all_tables[nodetype],
-                                                   pd.DataFrame([node.attrib])],
-                                                  ignore_index=True)
-
-            node_idx = len(self.all_tables[nodetype]) - 1
-            self.num_nodes_by_elem[nodetype] += 1  # Update node count
-            bpm_queue = []
-
-            for child in node.findall('./'):
-
+            for child in self.get_subtree(node):
                 if child.tag == "MetadataEntry":
-                    self.all_tables[nodetype].loc[node_idx, child.attrib['key']] = child.attrib['value']
-                elif child.tag == bpmname:
-                    bpm_queue.append(child)
-                    print(bpm_queue)
-                else:  # child tag = HeartRateVariabilityMetadataList
-                    while bpm_queue:
-                        # Have to define a separate index because all_tables
-                        # gets reset every nth iteration
-                        index_val = self.num_nodes_by_elem[nodetype] - 1
+                    table_queue[nodetype][-1] = table_queue[nodetype][-1] | child.attrib
+                elif child.tag == bpm_type:
+                    if child.tag not in table_queue.keys():
+                        table_queue[child.tag] = []
+                        self.num_nodes_by_elem[child.tag] = 0
+                        self.extract_time_per_elem[child.tag] = 0
+                    bpm_start = time.time()
+                    new_items = {'recordType': nodetype,
+                                 'recordIndex': self.num_nodes_by_elem[nodetype] - 1}
+                    bpm_node_attrib = child.attrib | new_items
+                    table_queue[child.tag].append(bpm_node_attrib)
+                    self.num_nodes_by_elem[child.tag] += 1
+                    self.extract_time_per_elem[child.tag] += time.time() - bpm_start
+                elif child.tag == "HeartRateVariabilityMetadataList":
+                    # HeartRateVariabilityMetadataList is just a wrapper node
+                    # for child type "InstantaneousBeatsPerMinute"
+                    pass
+                elif child.tag == record_tag:
+                    # get_subtree also returns argument node
+                    pass
+                else:
+                    raise ValueError(val_err_msg.format(child.tag))
 
-                        bpm_table = pd.DataFrame([bpm_queue[0].attrib])
-                        bpm_table.loc[0, ["Record table", "Index"]] = [nodetype, index_val]
-                        # Add to all_tables table
-                        self.all_tables[bpmname] = pd.concat([self.all_tables[bpmname],
-                                                              bpm_table],
-                                                             ignore_index=True)
-                        self.num_nodes_by_elem[bpmname] += 1  # Update node count
-                        bpm_queue.pop(0)  # Update queue
+            self.extract_time_per_elem[nodetype] += time.time() - start
 
-                    if bpmname not in table_queue:  # Append to queue
-                        table_queue.append(bpmname)
+            # Write all InstantaneousBPM entries to SQL and reset table_queue
+            if bpm_type in table_queue.keys() and len(table_queue[bpm_type]) >= chunk_size:
+                df = pd.DataFrame(table_queue[bpm_type])
+                self.dataframe_to_sql(df, table_name=bpm_type, ifexists='append')
+                del df
+                table_queue[bpm_type] = []
 
-            end = time.time()  # End timer
-            self.extract_time_per_elem[nodetype] += end - start
+        # Out of loop
+        print("Exited out of loop.\n")  # TEST
+        while table_queue:
+            # If exited out of loop and there's still some nodes to process
+            key = list(table_queue.keys())[0]
+            if table_queue[key]:
+                df = pd.DataFrame(table_queue[key])
+                self.dataframe_to_sql(df, table_name=key, ifexists='append')
+                del df
+            del table_queue[key]
 
-            if i % n == 0:
-                # Every nth iteration, write to DataFrame. This is a tremendous
-                # help for performance.
-
-                while table_queue:
-                    table_name = table_queue[0]
-                    # Write to SQL table
-                    self.dataframe_to_sql(self.all_tables[table_name], table_name, ifexists='append')
-                    # Reset DataFrames in dictionary (remove reference)
-                    self.all_tables[table_name] = pd.DataFrame()
-                    table_queue.pop(0)  # Reset queue
-
-            if i % 10000 == 0:
-                print(i, nodetype)
-
-        while table_queue:  # If exit out of loop and queue is not empty
-            tbl = table_queue[0]
-            self.dataframe_to_sql(self.all_tables[tbl], tbl, ifexists='append')
-            self.all_tables[tbl] = pd.DataFrame()
-            table_queue.pop(0)
-
-        # Check that there are no more nodes to be written to database
-        for rtable in self.record_tables:
-            len_table = len(self.all_tables[rtable])
-            if len_table > 0:
-                unresolved_tbls_msg = f"{rtable} has {len_table} entries left."
-                logging.error(unresolved_tbls_msg)
-                if self.verbose:
-                    print(unresolved_tbls_msg, end='\n')
+        # Make sure there are no more nodes to process
+        assert len(table_queue) == 0
 
     @func_timer
     def extract_childless_elements(self, tag, rootnode=None, table_name=""):
         """ Extracts attributes of (childless) Elements with tag = 'tag' to a
-        table in all_tables[tag].
+        table in a database with name table_name.
+
+        Args:
+            tag (str): Node tag.
+
+        Kwargs:
+            rootnode (ElementTree.Element): Root node. If None is passed in,
+                                            will default to the class root
+                                            node, the root of the ElementTree.
+            table_name (str): Name of the table to create in the database. If
+                              an empty string is passed in (the default), the
+                              table name is the tag.
         """
         if not rootnode:
             rootnode = self.root
@@ -392,18 +442,24 @@ class AppleHealthExtraction(object):
         if not table_name:
             table_name = tag
 
-        if table_name not in self.all_tables.keys():
-            self.all_tables[table_name] = pd.DataFrame()
+        if table_name not in self.num_nodes_by_elem.keys():
+            self.num_nodes_by_elem[table_name] = 0
+            self.extract_time_per_elem[table_name] = 0
 
+        start = time.time()  # Timer
+
+        # Initialize container for node attributes
+        attrib_list = []
         for i, node in enumerate(rootnode.findall(f"./{tag}"), start=1):
+            attrib_list.append(node.attrib)
 
-            current_node = pd.DataFrame([node.attrib])
-            temp_ref = self.all_tables[table_name]
-            self.all_tables[table_name] = pd.concat([temp_ref, current_node],
-                                                    ignore_index=True)
+        # Call dataframe_to_sql() and write dataframe to database
+        df = pd.DataFrame(attrib_list)
+        self.dataframe_to_sql(df, table_name, ifexists='fail')
 
-        # Update node count
+        # Update node count and node timer
         self.num_nodes_by_elem[table_name] = i
+        self.extract_time_per_elem[table_name] += time.time() - start
 
     def add_newcols_to_table(self, df, tbl):
         """ Adds new columns from df not found in existing tbl in
@@ -426,15 +482,15 @@ class AppleHealthExtraction(object):
             for col in new_cols:
                 newcolmsg = "ALTER TABLE {0} ADD COLUMN {1}".format(tbl, col)
                 conn.execute(text(newcolmsg))
-                logging.info(f"Added new column {col} for table {tbl}")
+                logging.info(f"Added new column '{col}' for table {tbl}")
 
             # Fetch DB columns again
             check_cols = [j[0] for j in conn.execute(text(query_cols)).fetchall()]
-            # assert len(set(new_cols) - set(check_cols)) == 0
+
             for added_col in new_cols:
                 assert added_col in check_cols, f"{added_col} not in table cols"
 
-            df.to_sql(tbl, con=conn, if_exists='append')
+            df.to_sql(tbl, con=conn, if_exists='append', method='multi')
 
     def dataframe_to_sql(self, df, table_name, ifexists='fail'):
         """ Feeds entries from DataFrame to a new or existing table
@@ -456,17 +512,29 @@ class AppleHealthExtraction(object):
         start_time = time.time()
         with self.engine.begin() as conn:
             try:
-                df.to_sql(table_name, con=conn, if_exists=ifexists)
+                df.to_sql(table_name, con=conn, if_exists=ifexists, method='multi')
             except (sqlalchemy.exc.OperationalError, sqlite3.OperationalError) as e:
                 # Log error
                 logging.info(f"Encountered error on {table_name}")
-                logging.info(str(e))
-                self.table_error_count[table_name] += 1
-                self.add_newcols_to_table(df, table_name)
 
-        end_time = time.time()
-        run_time = end_time - start_time
-        self.tosql_time_per_elem[table_name] += run_time
+                # Thee following split() is to truncate the error message to
+                # only the description of error. Otherwise, will also print
+                # a list of the entries that it tried to pass in, which for
+                # a DataFrame of 5000 would be a very long list.
+                truncated_msg = str(e).split('\n')[0]
+                self.table_error_count[table_name] += 1
+
+                # If the error is that the table has no column found in df:
+                if "has no column" in truncated_msg:
+                    logging.info(truncated_msg)
+                    self.add_newcols_to_table(df, table_name)
+                elif "too many SQL variables" in truncated_msg:
+                    logging.error(truncated_msg)
+                    err_msg = f"Cannot insert {table_name} into database."
+                    logging.error(err_msg)
+                    print(err_msg, end='\n')
+
+        self.tosql_time_per_elem[table_name] += time.time() - start_time
 
     def extract_data(self):
         """ Extracts to various tables information from nodes of the
@@ -495,19 +563,6 @@ class AppleHealthExtraction(object):
             else:
                 self.extract_childless_elements(elem)
 
-        # Write datasets to db
-        write_to_db = list(set(self.all_tables.keys()) - set(self.record_tables))
-        if self.append_to_db:
-            if_exists_toggle = 'append'
-        else:
-            if_exists_toggle = 'replace'
-        for tablename in write_to_db:
-            self.dataframe_to_sql(self.all_tables[tablename], tablename,
-                                  ifexists=if_exists_toggle)
-
-        # for n, t in self.all_tables.items():  # Write to CSV
-        #     t.to_csv("data/{0}_{1}.csv".format(self.datestring, n))
-
         # Timer stats
         self.program_end_time = time.time()
         self.total_elapsed_time = self.program_end_time - self.program_start_time
@@ -535,21 +590,21 @@ class AppleHealthExtraction(object):
             db_tables = [i[0] for i in db_tbl_names]
 
             # Compare table counts
-            in_memory_tbl_count = len(self.all_tables.keys())
+            in_memory_tbl_count = len(self.num_nodes_by_elem.keys())
             if not db_total_tbl_count == in_memory_tbl_count:
                 total_count_msg = "There are {0} tables inside db file but\
-                                   {1} tables in self.all_tables".format(db_total_tbl_count,
-                                                                         in_memory_tbl_count)
+                                   {1} tables were created during runtime".format(db_total_tbl_count,
+                                                                                  in_memory_tbl_count)
                 logging.debug(total_count_msg)
                 print_error_msgs.append(total_count_msg)
 
             # Compares list of table names
-            in_memory_tables = list(self.all_tables.keys())
+            in_memory_tables = list(self.num_nodes_by_elem.keys())
             list_diff = list(set(db_tables) ^ set(in_memory_tables))
-            list_fail_msg = "List of table names self.all_tables.keys() and from db don't match."
+            list_fail_msg = "List of table names self.num_nodes_by_elem.keys() and from db don't match."
             if list_diff:
                 logging.debug(list_fail_msg)
-                logging.debug("self.all_tables.keys(): {}".format(in_memory_tables))
+                logging.debug("self.num_nodes_by_elem.keys(): {}".format(in_memory_tables))
                 logging.debug("Tables inside db: {}".format(db_tables))
                 logging.debug("List difference: {}".format(list_diff))
 
@@ -581,10 +636,10 @@ class AppleHealthExtraction(object):
             - File name of resulting database.
         """
         # Total number of tables in database
-        num_elems_extracted = "There are {0} types of elements extracted".format(len(self.all_tables.keys()))
+        num_elems_extracted = f"There are {len(self.num_nodes_by_elem.keys())} types of elements extracted"
         logging.info(num_elems_extracted)
         if self.verbose:
-            print(num_elems_extracted, end='\n')
+            print("\n" + num_elems_extracted, end='\n')
 
         # Get number of instances and total time to write to database file for
         # each Element.
@@ -615,15 +670,23 @@ class AppleHealthExtraction(object):
 
 if __name__ == '__main__':
 
-    if len(sys.argv) not in [1, 2]:
-        print("USAGE: python extractapplehealth.py [OPTIONAL]/path/to/export.xml \n \
-            If secondary argument isn't passed in, searches for export.xml in 'apple_health_export' sub-directory of current working directory.", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Extracts data from exported Apple Health file `export.xml` and stores it in a database inside a \
+                                                 folder named `data/`. If path to `export.xml` is not passed in, will search for an export.xml \
+                                                 in a folder `apple_health_export/` within the current working directory.',
+                                     )
+    parser.add_argument('-o', '--open-file',
+                        type=str, nargs=1, required=False,
+                        help='the/path/to/export.xml.')
+    args = vars(parser.parse_args())
 
-    if len(sys.argv) == 1:
+    if args['open_file'] is None:
         xml_path = os.path.join(os.getcwd(), "apple_health_export", "export.xml")
     else:
-        xml_path = sys.argv[1]
+        arg_path = args['open_file'][0]
+        if arg_path[0] == '/':
+            xml_path = os.path.join(os.getcwd(), arg_path[1:])
+        else:
+            xml_path = arg_path
 
     tree = AppleHealthExtraction(xml_path, append_to_existing_db=False,
                                  exclude=['Correlation', 'Audiogram'],
