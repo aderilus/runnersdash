@@ -34,16 +34,14 @@ Related file(s): `extractapplehealth.py`
 1. Under the Health app settings (click on your profile picture), there will be a link to 'Export All Health Data'. This will download the file `export.zip` to your device. 
 1. Move this file to the same directory you cloned this repository to and open it to extract. This will create a new folder called `apple_health_export` where all your health data resides.
 1. To run `extractapplehealth.py`:
+    ```
+    python extractapplehealth.py OPTIONAL[-o /path/to/export.xml --append]
+    ```
+    **Optional arguments**:
 
-    a. If `export.zip` has been extracted within the `runnersdash/` directory: in the terminal, run
-    ```
-    python extractapplehealth.py
-    ```
-
-    b. Or if `export.zip` has been extracted somewhere else, run
-    ```
-    python extractapplehealth.py -o /path/to/export.xml
-    ```
+    - `-o`: Path to export.xml. If input starts with '/', will search for path in current working directory. If no argument passed in, will search for file path `apple_health_export/export.xml` in current working directory.
+    - `--append`: If passed in, the script will search for the latest version of a database (`.db`) file within the `data/` subdirectory of the current working directory. Only data from export.xml with `startDate` attribute >= the export date of the existing database will be extracted and appended to the database. 
+        - If not passed in, will default to `--no-append` and extract all data from the XML and write to a new database. 
 
 ### 2. Prepare datasets for dashboard
 Related file(s): `preparedatasets.py`, which reads relevant running metrics from the database file (the output from step 1) and outputs daily, weekly, and monthly aggregates of those metrics, stored as CSV files.
