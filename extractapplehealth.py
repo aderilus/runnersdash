@@ -3,33 +3,35 @@
                            into a database.
 
 Usage:
-    $ python extractapplehealth.py OPTIONAL[-o path/to/export.xml]
+    $ python extractapplehealth.py OPTIONAL[-o path/to/export.xml  --append]
+
+    If --append is passed in, script will find the latest version of a db file
+    within the 'data/' subdirectory and append to the database any data with
+    'startDate' >= latest export date of the db file. Default is --no-append.
 
 Output(s):
     1. A database (.db) file under subdirectory `data/` containing
        all health data organized into tables, grouped by their
-       identifier. The file name will include the date corresponding
+       identifier.
+       if --no-append: The file name will include the date corresponding
        to the given export date in the specific `export.xml` file
        it was extracted from, and if passed in the, version number of
        extractapplehealth.py
+       if --append: The file name is the latest available db file prior to
+       current export.
     2. A log file in the logs/ subdirectory, with name formatted as
         "db_{exportdate}_run{script run date in %Y%m%d}_{%H%M%S}.log"
 
 Things to note:
 - Last tested on Mar. 2022 Apple Health data.
-- This version does not extract elements with tag = "Correlation" or
-tag = "Audiogram".
-- ver 2.4:
-    - Rewrites extract_workout_elements and extract_childless_elements to
-      avoid calling pd.concat() inside for loops.
-    - Implements argparse.
-    - No longer stores node data in DataFrames (in memory) throughout program
-      runtime. DataFrame is only created in the step just before writing to
-      database. After database table creation and appending, the DataFrame
-      is no longer referenced, to be garbage collected.
+- This version does not extract elements with tag = "Correlation", "Audiogram",
+  or "ClinicalRecord".
+- ver 2.5
+    - Added functionality to extract nodes starting from a certain date and
+      append to latest available database.
 """
 
-__version__ = '2.4'
+__version__ = '2.5'
 
 import argparse
 import os
@@ -40,6 +42,7 @@ import logging
 import sqlalchemy
 import sqlite3
 
+from pathlib import Path
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
@@ -50,7 +53,6 @@ PREFIX_TO_STRIP = dict(zip(CREATE_SUBTABLES_FOR, [['HKQuantityTypeIdentifier',
                                                    'HKDataType', 'HKCategoryTypeIdentifier'],
                                                   ['HKWorkoutActivityType']]))
 TYPE_COL = dict(zip(CREATE_SUBTABLES_FOR, ['type', 'workoutActivityType']))
-
 VERBOSE = True
 
 
@@ -71,14 +73,15 @@ def func_timer(func):
 
 class AppleHealthExtraction(object):
 
-    def __init__(self, input_path, append_to_existing_db=False,
-                 exclude=[], verbose=VERBOSE, append_ver=False):
+    def __init__(self, input_path, append_to_existing_db, exclude=[],
+                 verbose=VERBOSE, append_ver=False,
+                 ):
 
         self.program_start_time = time.time()  # Start program timer
-        self.export_path = os.path.abspath(input_path)  # export.xml path
-
-        self.append_to_db = append_to_existing_db
+        self.export_path = Path(input_path)  # export.xml path
+        self.append_to_existing_db = append_to_existing_db
         self.append_ver = append_ver
+        self.append_from = None
         self.verbose = verbose
         self.exclude = exclude
 
@@ -93,7 +96,7 @@ class AppleHealthExtraction(object):
         self.total_elapsed_time = 0
 
         if self.verbose:
-            print("\nReading from: " + self.export_path)
+            print("\nReading from: " + str(self.export_path))
 
         # Open and parse file
         with open(self.export_path, 'r') as f:
@@ -108,26 +111,47 @@ class AppleHealthExtraction(object):
         self.datestring = self.exportdatetime.strftime("%Y%m%d")
 
         # Database file name
-        dbpath = os.path.join(os.getcwd(), "data/")
+        dbpath = Path(Path.cwd(), "data/")
         extension = '.db'
-        if not os.path.exists(dbpath):
-            os.makedirs(dbpath)
-        if self.append_ver:
-            dbsuffix = '_ver{0}'.format(__version__.replace('.', ''))
-        else:
-            dbsuffix = ''
-        dbprefix = self.datestring + '_applehealth' + dbsuffix
-        self.db_name = os.path.join(dbpath, dbprefix + extension)
 
-        if not self.append_to_db:  # If file already exists, rename the new db to be created
-            counter = 1
-            while os.path.exists(self.db_name):
-                count_fix = "_{}".format(counter)
-                self.db_name = os.path.join(dbpath, dbprefix + count_fix + extension)
-                counter += 1
+        if self.append_to_existing_db and list(dbpath.glob(f"*{extension}")):
+            # If append_from is passed in and there are db files inside
+            # the 'data/' subdirectory, get the path of the latest
+            # available db file in that folder
+            self.db_name = list(sorted(dbpath.glob(f"*{extension}")))[-1]
+            self.datestring = str(self.db_name).split('/')[-1][:8]
+            write_mode = 'Appending'
+        else:
+            # In the case if available db files cannot be found
+            self.append_to_existing_db = False
+            write_mode = 'Writing'
+
+            if not os.path.exists(dbpath):
+                os.makedirs(dbpath)
+            if self.append_ver:
+                dbsuffix = '_ver{0}'.format(__version__)
+            else:
+                dbsuffix = ''
+            dbprefix = self.datestring + '_applehealth' + dbsuffix
+            self.db_name = os.path.join(dbpath, dbprefix + extension)
+
+            # If file already exists, rename the new db to be created
+            if os.path.exists(self.db_name):
+                counter = 1
+                while os.path.exists(self.db_name):
+                    count_fix = "_{}".format(counter)
+                    self.db_name = os.path.join(dbpath, dbprefix + count_fix + extension)
+                    counter += 1
 
         # SQLAlchemy engine
         self.engine = create_engine(f'sqlite:////{self.db_name}')
+
+        # If append to existing db is True, get Export Date of latest db
+        if self.append_to_existing_db:
+            with self.engine.begin() as conn:
+                fetched = conn.execute("SELECT * FROM ExportDate").fetchall()
+                exportdatestr = fetched[-1][1]
+                self.append_from = datetime.strptime(exportdatestr, "%Y-%m-%d %H:%M:%S %z")
 
         # Log configs
         self.log_path = os.path.join(os.getcwd(), 'logs/')
@@ -140,7 +164,7 @@ class AppleHealthExtraction(object):
         # Log associated output file
         logging.info(f"extractapplehealth.py ver: {__version__}")
         logging.info(f"export.xml export date: {self.exportdate}")
-        logging.info(f"Writing to database file: {self.db_name}")
+        logging.info(f"{write_mode} to database file: {self.db_name}")
 
     def get_unique_tags(self):
         """ Helper function for extract_data() and get_toplevel_tags().
@@ -163,6 +187,26 @@ class AppleHealthExtraction(object):
 
         return top_level_nodes
 
+    def get_nodes_after_datetime(self, date_start, full_node_list):
+        """
+        Args:
+            date_start (datetime): Start date of date range as datetime object.
+            full_node_list (list):
+
+        Returns:
+            A list of nodes with their startDate attribute >= date_start.
+        """
+        start_idx = -1
+        cur_node = full_node_list[start_idx]
+        cur_date = datetime.strptime(cur_node.attrib['startDate'], "%Y-%m-%d %H:%M:%S %z")
+
+        while cur_date >= date_start:
+            start_idx -= 1
+            cur_node = full_node_list[start_idx]
+            cur_date = datetime.strptime(cur_node.attrib['startDate'], "%Y-%m-%d %H:%M:%S %z")
+
+        return full_node_list[start_idx + 1:]
+
     def get_subtree(self, node):
         """ Depth-first tree traversal.
         """
@@ -182,14 +226,31 @@ class AppleHealthExtraction(object):
             return True
         return False
 
+    def get_current_table_length(self, table_name):
+        with self.engine.begin() as conn:
+            query = f"SELECT count(*) FROM {table_name}"
+            fetched = conn.execute(query).fetchone()
+            length = fetched[0]
+        if type(length) == tuple:
+            return length[0]
+        elif type(length) == int:
+            return length
+        else:
+            raise ValueError(f"length {length} is an unsupported type {type(length)}")
+
     @func_timer
-    def extract_workout_elements(self, workout_tag="Workout", chunk_size=5000):
+    def extract_workout_elements(self, start_from="all", workout_tag="Workout",
+                                 chunk_size=5000):
         """ Extracts all elements with tag = 'Workout' from the tree.
         For each Workout type (indicated by attribute 'workoutActivityType'),
         creates a table of the 'Workout' elements of the same type.
         Also creates two other tables: 'WorkoutEvent' and 'WorkoutRoute'.
 
         Kwargs:
+            start_from (str or datetime.date): If datetime date is passed
+                              in, will only extract nodes where "startDate"
+                              attribute >= start_from. If "all", extracts all
+                              nodes regardless of "startDate". Default is "all".
             workout_tag (str): The node tag associated with Workout nodes.
                                Default is "Workout".
             chunk_size (int): The iteration number of the loop through 'Workout'
@@ -204,7 +265,16 @@ class AppleHealthExtraction(object):
         # holds a list of node.attrib, each of type dict.
         table_queue = {}
 
-        for i, node in enumerate(self.root.findall(f'./{workout_tag}'), start=1):
+        # If self.append_to_existing_db is True, store the existing table
+        # lengths keyed by table names.
+        existing_table_length = {}
+
+        # Get node list
+        node_list = self.root.findall(f'./{workout_tag}')
+        if start_from != "all":
+            node_list = self.get_nodes_after_datetime(start_from, node_list)
+
+        for i, node in enumerate(node_list, start=1):
             # If i a multiple of chunk_size, write every list in table_queue
             # to a DataFrame and call dataframe_to_sql()
             if i % chunk_size == 0:
@@ -228,6 +298,12 @@ class AppleHealthExtraction(object):
             # Append current node.attrib in its list in queue
             table_queue[nodetype].append(node.attrib)
             self.num_nodes_by_elem[nodetype] += 1
+            node_index = self.num_nodes_by_elem[nodetype] - 1
+
+            if self.append_to_existing_db:
+                if nodetype not in existing_table_length.keys():
+                    existing_table_length[nodetype] = self.get_current_table_length(nodetype)
+                node_index += existing_table_length[nodetype]
 
             # Initialize queue for Workout children nodes
             workout_route_queue = []
@@ -259,7 +335,7 @@ class AppleHealthExtraction(object):
 
                     # Update current child attributes with new items
                     new_items = {'workoutType': nodetype,
-                                 'workoutIndex': self.num_nodes_by_elem[nodetype] - 1}
+                                 'workoutIndex': node_index}
                     new_child_attrib = child.attrib | new_items
 
                     # Update table_queue and node counter
@@ -299,7 +375,6 @@ class AppleHealthExtraction(object):
                 self.extract_time_per_elem[nodetype] += end - start
 
         # Out of loop
-        print("Exited out of loop.\n")  # TEST
         while table_queue:
             key = list(table_queue.keys())[0]
             if table_queue[key]:  # If list is not empty
@@ -312,7 +387,8 @@ class AppleHealthExtraction(object):
         assert len(table_queue) == 0
 
     @func_timer
-    def extract_record_elements(self, record_tag="Record", chunk_size=5000):
+    def extract_record_elements(self, start_from="all", record_tag="Record",
+                                chunk_size=5000):
         """ Extracts all elements with tag = 'Record' from the tree.
         For each Record type (indicated by attribute 'type'), creates a
         table of 'Record' elements of the same type.
@@ -320,9 +396,13 @@ class AppleHealthExtraction(object):
         For every nth iteration, appends all existing 'Record' (sub)tables
         to their respective tables in the database.
 
-        Also creates one other tables: 'InstantaneousBeatsPerMinute'.
+        Also creates one other table: 'InstantaneousBeatsPerMinute'.
 
         Kwargs:
+            start_from (str or datetime.date): If datetime date is passed
+                              in, will only extract nodes where "startDate"
+                              attribute >= start_from. If "all", extracts all
+                              nodes regardless of "startDate". Default is "all".
             record_tag (str): The tag associated with 'Record' nodes.
                               Defaults to "Record".
             chunk_size (int): The iteration number of the loop through 'Record'
@@ -338,7 +418,20 @@ class AppleHealthExtraction(object):
         # InstantaneousBeatsPerMinute is a known (grand)child of Record
         bpm_type = "InstantaneousBeatsPerMinute"
 
-        for i, node in enumerate(self.root.findall(f"./{record_tag}"), start=1):
+        existing_table_length = {}
+
+        # Get node list
+        node_list = self.root.findall(f'./{record_tag}')
+        if start_from != "all":
+            # Have to approach this differently from Workout type nodes because
+            # Record data is grouped by Record type.
+            new_node_list = []
+            for n in node_list:
+                if datetime.strptime(n.attrib['startDate'], "%Y-%m-%d %H:%M:%S %z") >= start_from:
+                    new_node_list.append(n)
+            node_list = new_node_list
+
+        for i, node in enumerate(node_list, start=1):
             # Write chunk_size entries to SQL
             if i % chunk_size == 0:
                 for node_type, node_list in table_queue.items():
@@ -364,6 +457,12 @@ class AppleHealthExtraction(object):
             # Append current node attributes to list
             table_queue[nodetype].append(node.attrib)
             self.num_nodes_by_elem[nodetype] += 1
+            node_index = self.num_nodes_by_elem[nodetype] - 1
+
+            if self.append_to_existing_db:
+                if nodetype not in existing_table_length.keys():
+                    existing_table_length[nodetype] = self.get_current_table_length(nodetype)
+                node_index += existing_table_length[nodetype]
 
             for child in self.get_subtree(node):
                 if child.tag == "MetadataEntry":
@@ -376,7 +475,7 @@ class AppleHealthExtraction(object):
                         self.extract_time_per_elem[child.tag] = 0
                     bpm_start = time.time()
                     new_items = {'recordType': nodetype,
-                                 'recordIndex': self.num_nodes_by_elem[nodetype] - 1}
+                                 'recordIndex': node_index}
                     bpm_node_attrib = child.attrib | new_items
                     table_queue[child.tag].append(bpm_node_attrib)
                     self.num_nodes_by_elem[child.tag] += 1
@@ -401,7 +500,6 @@ class AppleHealthExtraction(object):
                 table_queue[bpm_type] = []
 
         # Out of loop
-        print("Exited out of loop.\n")  # TEST
         while table_queue:
             # If exited out of loop and there's still some nodes to process
             key = list(table_queue.keys())[0]
@@ -415,7 +513,8 @@ class AppleHealthExtraction(object):
         assert len(table_queue) == 0
 
     @func_timer
-    def extract_childless_elements(self, tag, rootnode=None, table_name=""):
+    def extract_childless_elements(self, tag, start_from="all", rootnode=None,
+                                   table_name=""):
         """ Extracts attributes of (childless) Elements with tag = 'tag' to a
         table in a database with name table_name.
 
@@ -423,6 +522,10 @@ class AppleHealthExtraction(object):
             tag (str): Node tag.
 
         Kwargs:
+            start_from (str or datetime.date): If datetime date is passed
+                              in, will only extract nodes where "startDate"
+                              attribute >= start_from. If "all", extracts all
+                              nodes regardless of "startDate". Default is "all".
             rootnode (ElementTree.Element): Root node. If None is passed in,
                                             will default to the class root
                                             node, the root of the ElementTree.
@@ -442,14 +545,36 @@ class AppleHealthExtraction(object):
 
         start = time.time()  # Timer
 
+        # Get node list
+        node_list = rootnode.findall(f"./{tag}")
+        if_exists = 'fail'
+
+        # If append to latest db is True
+        if start_from != "all":
+            if tag == "Me":
+                if_exists = 'replace'
+            elif tag == "ExportDate":
+                if_exists = 'append'
+            elif tag == "ActivitySummary":
+                if_exists = 'append'
+                dcol = 'dateComponents'
+                start = -1
+                cur_date = datetime.strptime(node_list[-1].attrib[dcol], "%Y-%m-%d")
+                while cur_date.date() >= start_from.date():
+                    start -= 1
+                    cur_date = datetime.strptime(node_list[start].attrib[dcol], "%Y-%m-%d")
+                node_list = node_list[start + 1:]
+            else:
+                raise ValueError(f"Have not implemented append support for type {tag}")
+
         # Initialize container for node attributes
         attrib_list = []
-        for i, node in enumerate(rootnode.findall(f"./{tag}"), start=1):
+        for i, node in enumerate(node_list, start=1):
             attrib_list.append(node.attrib)
 
         # Call dataframe_to_sql() and write dataframe to database
         df = pd.DataFrame(attrib_list)
-        self.dataframe_to_sql(df, table_name, ifexists='fail')
+        self.dataframe_to_sql(df, table_name, ifexists=if_exists)
 
         # Update node count and node timer
         self.num_nodes_by_elem[table_name] = i
@@ -506,7 +631,14 @@ class AppleHealthExtraction(object):
         start_time = time.time()
         with self.engine.begin() as conn:
             try:
-                df.to_sql(table_name, con=conn, if_exists=ifexists, method='multi')
+                if self.append_to_existing_db and ifexists == 'append':
+                    # Reindex the DataFrame according to existing table length
+                    query = f"SELECT count(*) FROM {table_name}"
+                    table_len = conn.execute(query).fetchone()[0]
+                    df.index = df.index + table_len
+
+                df.to_sql(table_name, con=conn, if_exists=ifexists,
+                          method='multi')
             except (sqlalchemy.exc.OperationalError, sqlite3.OperationalError) as e:
                 # Log error
                 logging.info(f"Encountered error on {table_name}")
@@ -540,6 +672,9 @@ class AppleHealthExtraction(object):
         # Get list of elements
         self.elements_to_extract = list(set(self.get_top_level_tags()) - set(self.exclude))
 
+        # If appending to existing database
+        from_datetime = "all" if not self.append_from else self.append_from
+
         for elem in self.elements_to_extract:
             msg = "Extracting {0}......".format(elem)
             logging.info(msg)
@@ -547,15 +682,13 @@ class AppleHealthExtraction(object):
                 print(msg, end=' ', flush=True)
 
             if elem == "Workout":
-                self.extract_workout_elements()
+                self.extract_workout_elements(start_from=from_datetime)
             elif elem == "Record":
-                self.extract_record_elements()
-            elif elem == "Correlation":
-                pass
-            elif elem == "Audiogram":
+                self.extract_record_elements(start_from=from_datetime)
+            elif elem in ["Correlation", "Audiogram", "ClinicalRecord"]:
                 pass
             else:
-                self.extract_childless_elements(elem)
+                self.extract_childless_elements(elem, start_from=from_datetime)
 
         # Timer stats
         self.program_end_time = time.time()
@@ -563,7 +696,8 @@ class AppleHealthExtraction(object):
 
         # Log and check results
         self.log_results()
-        self.check_results()
+        if not self.append_to_existing_db:
+            self.check_results()
 
     def check_results(self):
         """ Compares table counts and table names between what is stored
@@ -604,7 +738,7 @@ class AppleHealthExtraction(object):
 
                 print_error_msgs.append(list_fail_msg)
 
-            for tb in db_tables:  # Compare lengths of individual tables
+            for tb in self.num_nodes_by_elem.keys():  # Compare lengths of individual tables
                 nnodes_count = self.num_nodes_by_elem[tb]
                 db_tbl_count = conn.execute(text(per_table_query.format(tb))).fetchone()[0]
                 count_fail_msg = "Length of {t} from DB: {c1}, Length from class var: {c2}, sqlite3.OperationalError count: {c3}"
@@ -669,20 +803,24 @@ if __name__ == '__main__':
                                                  in a folder `apple_health_export/` within the current working directory.',
                                      )
     parser.add_argument('-o', '--open-file',
-                        type=str, nargs=1, required=False,
+                        type=str, nargs='?', required=False,
                         help='the/path/to/export.xml.')
+    parser.add_argument('-a', '--append',
+                        type=bool, required=False, default=False,
+                        action=argparse.BooleanOptionalAction,
+                        help="Toggle whether to append new data to the latest db file.")
     args = vars(parser.parse_args())
 
     if args['open_file'] is None:
         xml_path = os.path.join(os.getcwd(), "apple_health_export", "export.xml")
     else:
-        arg_path = args['open_file'][0]
+        arg_path = args['open_file']
         if arg_path[0] == '/':
             xml_path = os.path.join(os.getcwd(), arg_path[1:])
         else:
             xml_path = arg_path
 
-    tree = AppleHealthExtraction(xml_path, append_to_existing_db=False,
+    tree = AppleHealthExtraction(xml_path, append_to_existing_db=args['append'],
                                  exclude=['Correlation', 'Audiogram'],
                                  append_ver=True)
     tree.extract_data()
