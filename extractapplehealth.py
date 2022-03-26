@@ -80,8 +80,8 @@ class AppleHealthExtraction(object):
         self.program_start_time = time.time()  # Start program timer
         self.export_path = Path(input_path)  # export.xml path
         self.append_to_existing_db = append_to_existing_db
+        self.append_from = None  # Initialize append from date as None
         self.append_ver = append_ver
-        self.append_from = None
         self.verbose = verbose
         self.exclude = exclude
 
@@ -584,7 +584,6 @@ class AppleHealthExtraction(object):
         """ Adds new columns from df not found in existing tbl in
         database.
         """
-
         with self.engine.begin() as conn:
             # Get columns from DB table
             query_cols = "SELECT name from pragma_table_info('{0}')".format(tbl)
