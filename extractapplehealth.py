@@ -216,15 +216,13 @@ class AppleHealthExtraction(object):
 
     def check_if_workout_route(self, metadata_node):
         """  Returns whether or not input MetadataEntry node is a child of
-        a WorkoutRoute node. Helper function for extract_tag_from_tree().
+        a WorkoutRoute node. Helper function for extract_workout_elements().
         Assumes that node passed in has tag == "MetadataEntry".
         """
         if metadata_node.tag != "MetadataEntry":
             raise ValueError(f"Input Element must have tag = 'MetadataEntry'")
 
-        if "HKMetadataKey" in metadata_node.attrib['key']:
-            return True
-        return False
+        return "HKMetadataKey" in metadata_node.attrib['key']
 
     def get_current_table_length(self, table_name):
         with self.engine.begin() as conn:
@@ -813,11 +811,9 @@ if __name__ == '__main__':
     if args['open_file'] is None:
         xml_path = os.path.join(os.getcwd(), "apple_health_export", "export.xml")
     else:
-        arg_path = args['open_file']
-        if arg_path[0] == '/':
-            xml_path = os.path.join(os.getcwd(), arg_path[1:])
-        else:
-            xml_path = arg_path
+        xml_path = args['open_file']
+        if xml_path[0] == '/':
+            xml_path = os.path.join(os.getcwd(), xml_path[1:])
 
     tree = AppleHealthExtraction(xml_path, append_to_existing_db=args['append'],
                                  exclude=['Correlation', 'Audiogram'],
