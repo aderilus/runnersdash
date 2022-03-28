@@ -795,6 +795,7 @@ class AppleHealthExtraction(object):
 
 if __name__ == '__main__':
 
+    # Argument parser
     parser = argparse.ArgumentParser(description='Extracts data from exported Apple Health file `export.xml` and stores it in a database inside a \
                                                  folder named `data/`. If path to `export.xml` is not passed in, will search for an export.xml \
                                                  in a folder `apple_health_export/` within the current working directory.',
@@ -806,6 +807,10 @@ if __name__ == '__main__':
                         type=bool, required=False, default=False,
                         action=argparse.BooleanOptionalAction,
                         help="Toggle whether to append new data to the latest db file.")
+    parser.add_argument('-v', '--version',
+                        type=bool, required=False, default=False,
+                        action=argparse.BooleanOptionalAction,
+                        help="Toggle whether to append script version number to database file name.")
     args = vars(parser.parse_args())
 
     if args['open_file'] is None:
@@ -817,5 +822,5 @@ if __name__ == '__main__':
 
     tree = AppleHealthExtraction(xml_path, append_to_existing_db=args['append'],
                                  exclude=['Correlation', 'Audiogram'],
-                                 append_ver=True)
+                                 append_ver=args['version'])
     tree.extract_data()
