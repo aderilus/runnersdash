@@ -35,13 +35,8 @@ ver 1.5:
 __version__ = '1.5'
 
 import argparse
-import os
-import sys
 import re
-from matplotlib.pyplot import table
 import pandas as pd
-import numpy as np
-from sqlalchemy import column
 import healthdatabase as hd
 
 from pathlib import Path
@@ -834,7 +829,7 @@ if __name__ == '__main__':
 
     if write_to_csv:
         file_prefix = f"{file_path}{file_date}_"
-        combined_daily.to_csv(f"{file_prefix}dailyAggregate.csv")
-        combined_weekly.to_csv(f"{file_prefix}weeklyAggregate.csv")
-        combined_monthly.to_csv(f"{file_prefix}monthlyAggregate.csv")
-        resampled_runs.to_csv(f"{file_prefix}running_resampledDaily.csv")
+        write_to_csv(combined_daily, f"{file_prefix}dailyAggregate.csv", verbose=True)
+        write_to_csv(combined_weekly, f"{file_prefix}weeklyAggregate.csv", verbose=True)
+        write_to_csv(combined_monthly, f"{file_prefix}monthlyAggregate.csv", verbose=True)
+        write_to_csv(resampled_runs, f"{file_prefix}running_resampledDaily.csv", verbose=True)
