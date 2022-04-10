@@ -2,9 +2,9 @@
 preparedatasets.py: Imports and formats SQL tables as DataFrames for
                     visualization and analysis.
                     Outputs, stored in 'data' sub-directory:
-                        1. "[date]_dailyaggregate.csv"
-                        2. "[date]_weeklyaggregate.csv"
-                        3. "[date]_monthlyaggregate.csv"
+                        1. "[date]_dailyAggregate.csv"
+                        2. "[date]_weeklyAggregate.csv"
+                        3. "[date]_monthlyAggregate.csv"
                         4. "[date]_running_resampledDaily.csv"
 
 ver 1.2:
@@ -26,22 +26,27 @@ ver. 1.4:
       Wrapped the processing routines in function `get_processed_data()`.
     - Can run preparedatasets from the terminal or import in a file and run
       `load_processed_data()`
+
+ver 1.5:
+    - Implemented argparse
+    - Rewrote routines for loading, aggregating, and combining tables.
 """
 
-__version__ = '1.4'
+__version__ = '1.5'
 
+import argparse
 import os
 import sys
+import re
+from matplotlib.pyplot import table
 import pandas as pd
+import numpy as np
+from sqlalchemy import column
 import healthdatabase as hd
-import math
-from utils import (DAYS_OF_WK,
-                   extract_export_date,
-                   get_unit_from_string)
-from pathlib import Path
 
-TB_OF_INTEREST = ['Running', 'VO2Max', 'BodyMass', 'MenstrualFlow',
-                  'RestingHeartRate']
+from pathlib import Path
+from utils import (extract_export_date,
+                   get_unit_from_string)
 
 
 # --- HELPER FUNCTIONS --- #
@@ -51,661 +56,785 @@ def write_to_csv(dataframe, filename, verbose):
         print('Wrote full DataFrame to {n}'.format(n=filename))
 
 
-def get_run_type(x):
-    """
-    Args:
-        x (float): Duration of run in minutes.
-
-    Returns:
-        String indicating the type of run based on duration.
-            'Mini': x < 15 min
-            'Short': 15 <= x < 30
-            'Recovery': 30 <= x < 60
-            'Long': x >= 60
-    """
-    if math.isnan(x) or x <= 0:
-        return None
-
-    if x < 30:
-        if x < 15:
-            return 'Mini'
-        return 'Short'
-    else:
-        if x >= 60:
-            return 'Long'
-        return 'Recovery'
-
-
 def find_substr_in_list(txt, listobj, verbose):
     """ Returns string in listobj if txt matches all or part of the string.
 
     Args:
         txt (str): Substring to find a match.
         listobj (list): List of strings.
+        verbose (bool): Print output.
 
     Returns:
         None.
     """
-    for i in listobj:
-        if txt in i:
-            return i
+    pattern = re.compile(fr".*{txt}.*")
+    matching = list(filter(pattern.match, listobj))
 
     if verbose:
-        msg = "\nCould not find any matches for {elem} in {list}"
-        print(msg.format(elem=txt, list=listobj))
+        msg = "Found {0} matches for '{1}' inside list. Matches: {2}"
+        print(msg.format(len(matching), txt, matching))
 
-    return None
-
-
-def join_two_tables(df_left, df_right, join_left, join_right):
-    """ Merge two tables, taking the union of both tables.
-
-    Args:
-        df_left (pd.DataFrame):
-        df_right (pd.DataFrame):
-        join_left (str):
-        join_right (str):
-
-    Returns:
-        resultant (pd.DataFrame): Joined resultant table.
-    """
-    # Format date columns as type datetime
-    df_left[join_left] = pd.to_datetime(df_left[join_left], format='%Y-%m-%d')
-    df_right[join_right] = pd.to_datetime(df_right[join_right], format='%Y-%m-%d')
-
-    resultant = df_left.merge(df_right, how='outer',
-                              left_on=join_left, right_on=join_right)
-
-    # Combine both date columns into one column
-    combined_column = join_left + '_prime'
-    resultant[combined_column] = resultant[join_left].combine_first(resultant[join_right])
-    resultant.drop([join_left, join_right], axis=1, inplace=True)
-    resultant.rename({combined_column: join_left}, axis=1, inplace=True)
-    resultant[join_left] = pd.to_datetime(resultant[join_left], format='%Y-%m-%d')
-
-    # Sort by new Date column
-    resultant.sort_values(join_left, axis=0, inplace=True, ignore_index=True)
-
-    return resultant
+    return matching
 
 
-def get_aggregation_method(list_of_cols):
-    """ Return aggregation method depending on the column title.
+def get_daily_agg_method(list_of_cols):
+    """ Return aggregation method as a dictionary depending on the column name,
+        given a list of column names.
         The appearance of keywords like "Total" and "Avg" within the column
         name indicates 'sum' and 'mean' aggregation methods respectively.
-
-        Date columns indicated by "Day", "Week", "Month", etc. within the
-        name are skipped.
     """
     agg = {}
 
-    for col in list_of_cols:
-        if 'total' in col.lower():
-            agg[col] = 'sum'
-        elif 'starttime' in col.lower():
-            agg[col] = 'first'
-        elif 'endtime' in col.lower():
-            agg[col] = 'last'
-        elif col in ['Date', 'Week', 'Month', 'Year', 'Run Type']:
+    for c in list_of_cols:
+        col = c.lower()
+
+        if 'total' in col:
+            agg[c] = 'sum'
+        elif 'avg' in col or 'average' in col:
+            agg[c] = 'mean'
+        elif 'maximum' in col:
+            agg[c] = 'max'
+        elif 'minimum' in col:
+            agg[c] = 'min'
+        elif 'duration' in col:
+            # Previous elif will catch 'Avg Duration'
+            agg[c] = 'sum'
+        elif 'startdate' in col:
+            agg[c] = 'first'
+        elif 'enddate' in col:
+            agg[c] = 'last'
+        elif 'menstrual cycle start' in col.replace(' ', ''):
+            agg[c] = 'max'
+        elif 'elevation' in col:
+            agg[c] = 'sum'
+        elif 'weather' in col:
+            agg[c] = 'mean'
+        elif 'stepcount' in col.replace(' ', ''):
+            agg[c] = 'sum'
+        elif col == 'Date':
             pass
-        else:  # VO2Max, BodyMass, Menstrual Flow
-            agg[col] = 'mean'
+        else:
+            # VO2Max, BodyMass, Menstrual Flow (num), Indoor Workout
+            # RestingHeartRate, HeartRateVariabilitySDNN, BloodPressure,
+            agg[c] = 'mean'
 
     return agg
 
 
-def group_by_date(dataframe, aggregation_method, datetimecol):
-    """ Group rows by common date. Helper function for get_daily_aggregate.
-
-    Args:
-        dataframe (pd.DataFrame): DataFrame to group.
-        aggregation_method (dict): Dictionary with the given DataFrame columns
-                                   as keys, with its aggregation method.
-            Example: agg_method = {'duration (min)': 'sum',
-                                   'totalDistance (km)': 'sum',
-                                   'totalEnergyBurned (Cal)': 'sum',
-                                   'startDate': 'first', 'endDate': 'last'}
-        datetimecol (str): Name of the column containing datetime values.
-
-    Returns:
-        aggregated (pd.DataFrame): Resulting DataFrame grouped by the date.
+def get_weekly_agg_method(list_of_cols):
+    """ Return aggregation method as a dictionary depending on the column name,
+        given a list of column names.
     """
+    agg = {}
 
-    aggregated = dataframe.groupby(dataframe[datetimecol].dt.date).agg(aggregation_method).reset_index()
+    # Special cases
+    workout_cases = ['Duration', 'Total Distance', 'Total Energy Burned']
+    record_cases = ['Resting Heart Rate', 'VO2 Max', 'Body Mass',
+                    'Heart Rate Variability SDNN', 'Blood Pressure',
+                    'Blood Pressure', 'Respiratory Rate']
+    special_cases = {i: ['sum', 'mean', 'min', 'max'] for i in workout_cases}
+    special_cases.update({j: ['mean', 'std'] for j in record_cases})
+    for s in special_cases.keys():
+        pattern = re.compile(fr".*{s}.*")
+        matches = list(filter(pattern.match, list_of_cols))
+        for m in matches:
+            agg[m] = special_cases[s]
 
-    return aggregated
+    # Update columns to parse
+    remaining_cols = list_of_cols.copy()
+    for k in agg.keys():
+        remaining_cols.remove(k)
+
+    for c in remaining_cols:
+        col = c.lower().replace(' ', '')
+
+        if 'elevation' in col:
+            agg[c] = ['mean', 'min', 'max']
+        elif 'pace' in col:
+            agg[c] = ['mean', 'min', 'max']
+        elif 'menstrualcyclestart' in col:
+            agg[c] = 'max'
+        else:
+            agg[c] = 'mean'
+
+    return agg
+
+
+def get_monthly_agg_method(list_of_cols):
+    """ Return aggregation method as a dictionary depending on the column name,
+        given a list of column names.
+    """
+    agg = {}
+
+    for c in list_of_cols:
+        col = c.lower().replace(' ', '')
+
+        if 'totalduration' in col or 'totaldistance' in col or 'totalenergy' in col:
+            agg[c] = ['sum', 'mean', 'std']
+        elif 'speed' in col:
+            agg[c] = 'mean'
+        elif 'date' in col:
+            pass
+        else:
+            agg[c] = ['mean', 'std']
+
+    return agg
+
+
+def extract_unit_from_column(dataframe, column_name, unitcolumn):
+    """ Helper function for format_record_table and format_workout_table.
+    """
+    dfiltered = dataframe[(dataframe[unitcolumn] != 'None') & (dataframe[unitcolumn] is not None)]
+    distinct_units = dfiltered[unitcolumn].unique()
+
+    if len(distinct_units) != 1:
+        raise ValueError(f"{column_name} has {len(distinct_units)} units: {distinct_units}")
+
+    unit = distinct_units[0]
+    return unit
+
+
+def rename_from_camelcase(current_colname, flag_count=0):
+    """ Helper function for format_workout_table.
+    """
+    noprefix = current_colname.removeprefix("HK")
+    pattern = r"(\w)([A-Z])"
+
+    if "VO2Max" in current_colname:
+        pattern = r"(\w\d)([A-Z])"
+
+    newcolname = re.sub(pattern, r"\1 \2", noprefix, count=flag_count)
+    return newcolname
+
+
+def get_col_dtype(column_name):
+    """
+    """
+    col = column_name.lower().replace(' ', '')
+    unit = get_unit_from_string(column_name)
+    special_case = {'indoorworkout': 'float64',
+                    'menstrualcyclestart': 'int64',
+                    'workoutevent': bool,
+                    'workoutroute': bool,
+                    'wasuserentered': float}
+
+    time_units = ['hr', 'min', 's', 'sec', 'ms', 'ns']  # float64
+    distance_metric = ['m', 'km', 'cm', 'mm']  # float64
+    distance_imperial = ['mi', 'miles', 'ft', 'feet']  # float 64
+    distance_units = distance_metric + distance_imperial
+    other_float_units = ['degF', 'degC', '%', 'lb', 'mmHg', 'Cal', 'kcal', 'num']
+    int_units = ['count']  # int64
+
+    float_types = time_units + distance_units + other_float_units
+    bool_rate_type = unit.find('/') != -1
+    bool_unit_float = bool_rate_type or unit in float_types or 'avg' in col
+    bool_unit_int = unit in int_units
+
+    if bool_unit_float:
+        return 'float64'
+    elif bool_unit_int:
+        return 'int64'
+    elif 'date' in col:
+        return 'datetime64[ns]'
+    else:
+        for k, v in special_case.items():
+            if k in col:
+                return v
+        return str  # Set as string type if all cases fail
+
+
+def set_dataframe_dtypes(dataframe):
+    """ Returns DataFrame with columns casted as data types determined
+    by get_col_dtype() method.
+    """
+    search_columns = list(dataframe.columns)
+    if 'startDate' in search_columns:
+        search_columns.remove('startDate')
+    if 'endDate' in search_columns:
+        search_columns.remove('endDate')
+    dtypes = {i: get_col_dtype(i) for i in search_columns}
+    return dataframe.astype(dtypes)
 
 
 class DatasetPrep(object):
 
-    def __init__(self, database_path, tables=TB_OF_INTEREST, verbose=True,
-                 testing=False):
+    def __init__(self, database_path, workout_tables, record_tables,
+                 verbose=True, testing=False):
 
         self.verbose = verbose
         self.testing = testing
 
-        self.dbPath = str(database_path)
-        self.exportDate = extract_export_date(self.dbPath)
-        self.tableNames = tables
+        self.WORKOUT_TABLES = workout_tables
+        self.RECORD_TABLES = record_tables
 
-        self.extracted_data = {}
-        self.formatted_data = {}
+        if database_path[0] == '/':
+            # File path is an absolute path (as string)
+            self.DB_FILE = database_path
+        else:
+            # File path is relative
+            self.DB_FILE = str(Path(Path.cwd(), database_path))
 
-        # Outputs of processing routines
-        self.aggregate_outputs = {}
-        self.resample_outputs = {}
+        if self.verbose:
+            print(f'Reading from {self.DB_FILE}')
 
-        # Use in rename_column_with_unit
-        self.colname_prefix = {'Running': ['Total Duration', 'Total Distance',
-                                           'Total Energy Burned From Run'],
-                               'VO2Max': ['Avg. VO2Max'],
-                               'BodyMass': ['Avg. BodyMass'],
-                               'MenstrualFlow': ['MenstrualFlow'],
-                               'RestingHeartRate': ['Avg. Resting HR']}
+        self.DB_EXPORT_DATE = extract_export_date(database_path)
 
-        self.columnmapper = {'Running': dict(zip(['duration', 'totalDistance',
-                                                  'totalEnergyBurned'], self.colname_prefix['Running'])),
-                             'VO2Max': dict(zip(['value'], self.colname_prefix['VO2Max'])),
-                             'BodyMass': dict(zip(['value'], self.colname_prefix['BodyMass'])),
-                             'MenstrualFlow': dict(zip(['value'], self.colname_prefix['MenstrualFlow'])),
-                             'RestingHeartRate': dict(zip(['value'], self.colname_prefix['RestingHeartRate']))
-                             }
+        # Formatting
+        self.DATE_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 
-        self.daily_colnames = {}
+        # Containers
+        self.daily_aggregates = {}
+        self.weekly_aggregates = {}
+        self.monthly_aggregates = {}
+        self.resampled_tables = {}
 
     # --- ACCESSOR METHODS ---- #
     def get_export_date(self):
-        return self.exportDate
+        return self.DB_EXPORT_DATE
 
-    def get_original_data(self):
-        return self.extracted_data
+    def get_aggregates_dict(self, freq):
+        f = freq.lower()
 
-    def get_formatted_data(self):
-        return self.formatted_data
-
-    def get_all_aggregates(self):
-        """ Returns aggregated DataFrames within a dictionary keyed by their
-            aggregation type ('daily', 'weekly', or 'monthly').
-        """
-        return self.aggregate_outputs
-
-    def get_all_resamples(self):
-        """ Returns resampled DataFrames within a dictionary keyed by the
-            database table name.
-        """
-        return self.resample_outputs
+        if f.startswith('d'):
+            return self.daily_aggregates
+        elif f.startswith('w'):
+            return self.weekly_aggregates
+        elif f.startswith('m'):
+            return self.monthly_aggregates
+        else:
+            raise ValueError("Allowed inputs for freq parameter: ['d', 'daily', \
+                             'w', 'weekly', 'm', 'monthly'].")
     # --- END ACCESSORS --- #
 
-    # --- EXTRACT & LOAD --- #
-    def extract_to_dataframes(self, database_file, tables_to_get):
-        """ Given the path to a database and a list of the table names to
-            import, outputs a dictionary of the corresponding DataFrames.
-            Helper function for load_database().
+    # --- FORMATTING FUNCTIONS --- #
+    def format_menstrual_flow(self, dataframe):
         """
+        """
+        # Remove prefix from value column
+        dataframe['value'] = dataframe['value'].apply(lambda x: x.split("Flow")[-1])
 
-        dflist = []
+        # New numerical 'value' column
+        value_map = {'None': 0, 'Light': 1, 'Medium': 2, 'Heavy': 3}
+        dataframe['Menstrual Flow (num)'] = dataframe['value'].map(value_map)
 
-        #  Create sqlite3 Connection and read given tables
-        with hd.HealthDatabase(database_file) as db:
+        # Rename columns
+        dataframe.rename(columns={'value': 'Menstrual Flow',
+                                  'HKMenstrualCycleStart': rename_from_camelcase('HKMenstrualCycleStart')},
+                         inplace=True)
+
+        # Set column data types
+        dataframe = set_dataframe_dtypes(dataframe)
+
+        return dataframe
+
+    def format_record_table(self, tablename, dataframe):
+        if tablename == "MenstrualFlow":
+            df = self.format_menstrual_flow(dataframe)
+        else:
+            df = dataframe.copy()
+
+            # -- Get distinct values in 'unit' column -- #
+            metric_unit = extract_unit_from_column(df, tablename, 'unit')
+
+            # -- Rename value column to "{table_name} ({unit})" -- #
+            formatted_name = rename_from_camelcase(tablename, 3)
+            df.rename(columns={'value': f'{formatted_name} ({metric_unit})'}, inplace=True)
+            df.drop('unit', axis=1, inplace=True)
+
+            # -- Set column data type -- #
+            df = set_dataframe_dtypes(df)
+
+        return df
+
+    def format_workout_table(self, tablename, dataframe):
+        """
+        """
+        # Format numeric columns
+        numeric_cols = ['duration', 'totalDistance', 'totalEnergyBurned']
+        for numcol in numeric_cols:
+            if numcol in dataframe.columns:
+                colunit = extract_unit_from_column(dataframe, tablename, numcol + 'Unit')
+                # Change numeric col names from camel case to regular
+                # capitalized case
+                new_col_prefix = rename_from_camelcase(numcol).title()
+                new_col_name = f"{new_col_prefix} ({colunit})"
+                dataframe.rename(columns={numcol: new_col_name},
+                                 inplace=True)
+                # Drop redundant unit column
+                dataframe.drop(numcol + "Unit", axis=1, inplace=True)
+
+        # Format MetadataEntry columns
+        hk_cols = [col for col in dataframe.columns if col.startswith("HK")]
+        hk_bool_types = ['WorkoutEvent', 'WorkoutRoute']
+        hk_str_to_num = ['HKAverageSpeed', 'HKMaximumSpeed',
+                         'HKElevationDescended',
+                         'HKElevationAscended',
+                         'HKAverageMETs',
+                         'HKWeatherTemperature',
+                         'HKWeatherHumidity']
+
+        # Cast bool columns
+        for hcol in hk_bool_types:
+            if hcol in dataframe.columns:
+                dataframe[hcol] = dataframe[hcol].fillna(0)
+
+        # For HK columns not in hk_str_to_num, rename columns
+        for hcol in list(set(hk_cols) - set(hk_str_to_num)):
+            if hcol in dataframe.columns:
+                dataframe.rename(columns={hcol: rename_from_camelcase(hcol)}, inplace=True)
+
+        # Separate numeric value and unit for columns hk_str_to_num
+        for col in hk_str_to_num:
+            if col in dataframe.columns:
+                col_rename = rename_from_camelcase(col, 1)
+                unit_col = col + 'Unit'
+                dataframe[[col, unit_col]] = dataframe[col].str.split(' ', n=1, expand=True)
+
+                # Set data types
+                dataframe[unit_col] = dataframe[unit_col].astype(str)
+
+                # If there is only one distinct unit, add to column name and
+                # drop unit column
+                distinct_units = dataframe[dataframe[unit_col] != 'None'][unit_col].unique()
+                if len(distinct_units) == 1:
+                    dataframe.rename(columns={col: f"{col_rename} ({distinct_units[0]})"},
+                                     inplace=True)
+                    dataframe.drop(unit_col, axis=1, inplace=True)
+                elif len(distinct_units) > 1 and 'm' in distinct_units:
+                    map_to_meter = {'cm': 10**-2, 'mm': 10**-3}
+                    # Filter out where unit isn't None or 'm'
+                    idx = dataframe[(dataframe[unit_col] != 'm') & (dataframe[unit_col] != 'None')].index
+                    # Rename numeric column to include unit
+                    new_col_name = f"{col_rename} (m)"
+                    dataframe.rename(columns={col: new_col_name}, inplace=True)
+                    # Set column data type
+                    dataframe[new_col_name] = dataframe[new_col_name].astype(get_col_dtype(new_col_name))
+                    # Convert to meters
+                    dataframe.loc[idx, new_col_name] = dataframe.loc[idx].apply(lambda x: x[new_col_name] * map_to_meter[x[unit_col]],
+                                                                                axis=1)
+                    # Drop unit column
+                    dataframe.drop(unit_col, axis=1, inplace=True)
+                else:  # Keep unit col and numeric col as is
+                    pass
+
+        # Set column data types
+        dataframe = set_dataframe_dtypes(dataframe)
+
+        return dataframe
+
+    # --- EXTRACT & LOAD FUNCTIONS ---#
+    def extract_to_dataframe(self, table_name):
+        """ Returns the table in the database contained as a DataFrame,
+        keeping only the relevant columns.
+        """
+        date_col_map = {'startDate': self.DATE_FORMAT}
+
+        # Create sqlite3 connection and get the given table as is
+        with hd.HealthDatabase(self.DB_FILE) as db:
             conn = db.get_connection()
-            cursor = db.get_cursor()
 
-            for tb in tables_to_get:
-                query = "SELECT * FROM {table}".format(table=tb)
-                dflist.append(pd.read_sql_query(query, conn))
+            if table_name in self.RECORD_TABLES:
+                read_cols = ['[index]', 'value', 'unit', 'startDate']
+                if table_name == "MenstrualFlow":
+                    read_cols.remove('unit')
+                    read_cols.append('HKMenstrualCycleStart')
+                cols_to_get = ", ".join(read_cols)
+            elif table_name in self.WORKOUT_TABLES:
+                cols_to_get = "*"
+                date_col_map.update({'endDate': self.DATE_FORMAT})
+            else:
+                raise ValueError(f"extract_to_dataframe: Have not yet implemented support for {table_name}")
 
-        return dict(zip(tables_to_get, dflist))
+            # Query database
+            query = f"SELECT {cols_to_get} FROM {table_name}"
+            df = pd.read_sql_query(query, conn,
+                                   index_col='index',
+                                   parse_dates=date_col_map)
 
-    def load_database(self):
-        """ Reads and formats database file.
+            # Drop unnecessary columns for type = 'Workout'
+            if table_name in self.WORKOUT_TABLES:
+                cols_to_drop = ['workoutActivityType', 'device', 'HKTimeZone',
+                                'sourceVersion', 'creationDate']
+                df.drop(columns=cols_to_drop, inplace=True)
+
+        return df
+
+    def load_table(self, table_name):
+        """ Returns a DataFrame of the formatted table from the database given
+        its table name.
         """
+        # Extract table as DataFrame
+        df = self.extract_to_dataframe(table_name)
 
-        imported = self.extract_to_dataframes(self.dbPath, self.tableNames)
-        formatted = self.format_dataframes(imported)
+        # Format tables
+        if table_name in self.RECORD_TABLES:
+            table = self.format_record_table(table_name, df)
+        elif table_name in self.WORKOUT_TABLES:
+            table = self.format_workout_table(table_name, df)
+        else:
+            raise ValueError(f"No support for loading {table_name}.")
 
-        self.extracted_data = imported
-        self.formatted_data = formatted
-    # --- END EXTRACT & LOAD --- #
+        return table
 
-    # --- FORMAT TABLES --- #
-    def rename_column_with_unit(self, dframe, tablename, column_mapper):
-        """ Helper function for format_dataframes().
-            Concatenates the unit onto each column name in value_cols.
+    # --- AGGREGATING FUNCTIONS --- #
+    def add_to_aggregate(self, aggregated_table):
+        """ Adds the following columns to aggregated_table:
+            1. 'Date': Date formatted 'YYYY-mm-dd'
+            2. 'Avg Pace (unit)': Pace computed as total duration divided
+                by total distance.
+        Helper function for aggregate_daily().
+        """
+        cols = aggregated_table.columns
 
-        Examples:
-            tablename = 'Running': 'totalDistance' renamed to 'totalDistance (km)'
-            tablename = 'VO2Max': 'value' --> 'VO2Max ([unit])'
-            tablename = 'BodyMass': 'value' --> 'Weight (lb)'
-            tablename = 'RestingHeartRate': 'value' --> 'Avg. Resting HR (bpm)'
+        # Add a Date column from startDate
+        aggregated_table['Date'] = aggregated_table['startDate'].dt.date
+
+        # If there exists a duration and distance column add avg pace column
+        durations_filter = find_substr_in_list('Duration', cols, verbose=self.testing)
+        distances_filter = find_substr_in_list('Total Distance', cols, verbose=self.testing)
+
+        if durations_filter and distances_filter:
+            duration_col = durations_filter[0]
+            distance_col = distances_filter[0]
+
+            duration_unit = get_unit_from_string(duration_col)
+            distance_unit = get_unit_from_string(distance_col)
+            pace_unit = f'{duration_unit}/{distance_unit}'
+
+            pace_col_name = f'Avg Pace ({pace_unit})'
+            aggregated_table[pace_col_name] = aggregated_table[duration_col] / aggregated_table[distance_col]
+
+        new_columns = list(aggregated_table.columns)
+        new_columns.remove('Date')
+
+        # Set column data types
+        resultant = set_dataframe_dtypes(aggregated_table)
+
+        return resultant[['Date'] + new_columns]
+
+    def rename_by_agg(self, dataframe, aggregation_map):
+        new_column_names = {}
+
+        for col in dataframe.columns:
+            if type(col) == str:
+                if aggregation_map[col] == 'sum' and 'total' not in col.lower():
+                    new_col_name = 'Total ' + col
+                elif aggregation_map[col] == 'mean' and 'avg' not in col.lower():
+                    if 'Average' in col:
+                        new_col_name = col.replace('Average', 'Avg')
+                    else:
+                        new_col_name = 'Avg ' + col
+                elif aggregation_map[col] == 'max' and 'maximum' not in col.lower():
+                    if 'Maximum' in col:
+                        new_col_name = col.replace('Maximum', 'Max')
+                    elif 'menstrualcyclestart' not in col.lower().replace(' ', ''):
+                        new_col_name = 'Max ' + col
+                    else:
+                        new_col_name = col
+                elif aggregation_map[col] == 'min' and 'minimum' not in col.lower():
+                    if 'Maximum' in col:
+                        new_col_name = col.replace('Minimum', 'Min')
+                    else:
+                        new_col_name = 'Min ' + col
+                else:
+                    new_col_name = col
+
+                new_column_names[col] = new_col_name
+
+        return dataframe.rename(columns=new_column_names)
+
+    def aggregate_daily(self, tablename, date_column):
+        """ Given the table name and the name of column of dates to group by,
+        returns a daily aggregate of the table as a DataFrame.
+        """
+        data = self.load_table(tablename)
+
+        # Drop certain columns for certain tables
+        if tablename in self.WORKOUT_TABLES:
+            cols_to_drop = ['sourceName', 'Was User Entered',
+                            'WorkoutEvent', 'WorkoutRoute']
+        elif tablename == 'MenstrualFlow':
+            cols_to_drop = ['Menstrual Flow']
+        else:
+            cols_to_drop = []
+
+        for drop_col in cols_to_drop:
+            if drop_col in data.columns:
+                data.drop(columns=drop_col, inplace=True)
+
+        # Load aggregation methods for each column
+        column_agg_methods = get_daily_agg_method(list(data.columns))
+
+        # Aggregate by date_column
+        aggregated_data = data.groupby(data[date_column].dt.date,
+                                       as_index=False).agg(column_agg_methods)
+
+        # Rename columns to prefix 'Avg' or 'Total' according to aggregation
+        # method
+        aggregated_data = self.rename_by_agg(aggregated_data, column_agg_methods)
+
+        # Add new columns
+        resultant = self.add_to_aggregate(aggregated_table=aggregated_data)
+
+        # Store
+        self.daily_aggregates[tablename] = resultant
+
+        return resultant
+
+    def aggregate_weekly(self, table_name):
+        """ Returns the DataFrame aggregated by week, on its date_column.
+        """
+        date_column = 'Date'
+        if table_name in self.daily_aggregates.keys():
+            daily = self.daily_aggregates[table_name]
+        else:
+            daily = self.aggregate_daily(table_name, 'startDate')
+
+        # Drop columns
+        if table_name in self.WORKOUT_TABLES:
+            cols_to_drop = ['startDate', 'endDate']
+
+            # Find and drop indoor workout column, if found
+            pattern = re.compile(".*Indoor Workout.*")
+            matches = list(filter(pattern.match, daily.columns))
+            if len(matches) == 1:
+                cols_to_drop.append(matches[0])
+        elif table_name in self.RECORD_TABLES:
+            cols_to_drop = 'startDate'
+
+        daily.drop(columns=cols_to_drop, inplace=True)
+
+        # Load aggregation methods
+        agg_methods = get_weekly_agg_method(list(daily.columns))
+
+        # Aggregate
+        grouper = pd.Grouper(key=date_column, freq='W-MON',
+                             closed='left', label='left')
+        weekly_aggregated = daily.groupby(grouper).agg(agg_methods)
+
+        # Drop redundant date column
+        weekly_aggregated.drop(columns='Date', inplace=True)
+
+        # Rename columns according to agg method
+        weekly_aggregated = self.rename_by_agg(weekly_aggregated, agg_methods)
+
+        # Store
+        self.weekly_aggregates[table_name] = weekly_aggregated
+
+        return weekly_aggregated
+
+    def aggregate_monthly(self, table_name):
+        date_column = 'Date'
+
+        if table_name in self.daily_aggregates.keys():
+            daily = self.daily_aggregates[table_name]
+        else:
+            daily = self.aggregate_daily(table_name, 'startDate')
+
+        # Load aggregation methods
+        agg_methods = get_monthly_agg_method(list(daily.columns))
+
+        # Aggregate
+        grouper = pd.Grouper(key=date_column, freq='MS')
+        monthly_aggregated = daily.groupby(grouper).agg(agg_methods)
+
+        return monthly_aggregated
+
+    def aggregate_table(self, tablename, freq, return_table=True):
+        """ Aggregate table according to 'freq'. If return_table is
+        True, will return the aggregated table as a DataFrame.
 
         Args:
-            dframe (pd.DataFrame): DataFrame with columns to rename.
-            tablename (str): Name of the table as appears in the database file.
-            column_mapper (dict):
-
-        Returns:
-            None. Modifies given DataFrame in place.
-        """
-
-        custom_unit = {'Running': False,
-                       'VO2Max': False,
-                       'BodyMass': False,
-                       'MenstrualFlow': 'num',
-                       'RestingHeartRate': 'bpm'}
-
-        for value_col, new_col_name in column_mapper[tablename].items():
-
-            if value_col == 'value':
-                unit_col = 'unit'
-            else:  # CASE: tablename = 'Running'
-                unit_col = value_col + 'Unit'
-
-            # Get root and unit of column
-            root = new_col_name
-
-            if custom_unit[tablename]:
-                get_unit = custom_unit[tablename]
-            else:
-                get_unit = dframe[unit_col].iloc[0]
-
-            new_name = root + ' (%s)' % get_unit
-
-            # Rename
-            dframe.rename(mapper={value_col: new_name}, axis=1, inplace=True)
-
-            # Drop unit cols
-            dframe.drop(unit_col, axis=1, inplace=True)
-
-    def format_dataframes(self, df_dict):
-        """ Formats the given DataFrames stored inside a dictionary.
-
-        Note: As of Dec. 2021 data, some entries under the 'value' column of
-        table 'MenstrualFlow' have a typo: 'HKCategoryValueMensturalFlowNone'
-        instead of 'HKCategoryValueMenstrualFlowNone'.
-
-        Args:
-            df_dict (dict): Dictionary of DataFrames.
-
-        Returns:
-            None. Modifies the DataFrames in place.
-        """
-
-        updated = {}
-        col_names = {}
-
-        menstrualvaluemap = {'None': 0, 'Light': 1, 'Medium': 2, 'Heavy': 3}
-
-        for table_name, table in df_dict.items():
-
-            updated[table_name] = table.copy()
-            newtable = updated[table_name]
-
-            if table_name == "MenstrualFlow":
-                # Strip prefix from 'value' column. See Note above.
-                newtable['value'] = table['value'].apply(lambda x: x.removeprefix("HKCategoryValueMenstrualFlow").removeprefix("HKCategoryValueMensturalFlow"))
-
-                # Drop rows where 'MenstrualFlow' value is 'Unspecified'
-                newtable.drop(newtable.index[newtable['value'] == "Unspecified"], inplace=True)
-
-                # Map string values to numeric values
-                newtable['value'] = newtable['value'].map(menstrualvaluemap)
-
-            else:
-                # Format these columns as numeric types
-                numeric_cols = list(self.columnmapper[table_name].keys())
-                newtable[numeric_cols] = newtable[numeric_cols].apply(pd.to_numeric)
-
-            # Format column 'startDate' as datetime.datetime and create a new
-            # 'Date' column for each table
-            if table_name == "RestingHeartRate":
-                newtable['endDate'] = pd.to_datetime(table['endDate'], format='%Y-%m-%d %H:%M:%S %z')
-                newtable['Date'] = pd.to_datetime(newtable['endDate'].dt.date)
-            else:
-                newtable['startDate'] = pd.to_datetime(table['startDate'], format='%Y-%m-%d %H:%M:%S %z')
-                newtable['Date'] = pd.to_datetime(newtable['startDate'].dt.date)
-
-            # Drop these shared columns
-            cols_to_drop = ['sourceName', 'sourceVersion', 'creationDate']
-            if table_name == "Running":
-                cols_to_drop.append('workoutActivityType')
-            else:
-                cols_to_drop.extend(['type', 'startDate', 'endDate'])
-
-            newtable.drop(cols_to_drop, axis=1, inplace=True)
-
-            # Rename 'value' columns, concatenating the unit to the column name
-            self.rename_column_with_unit(newtable, table_name, column_mapper=self.columnmapper)
-
-            # Rename 'startDate' and 'endDate' columns for 'Running'
-            if table_name == "Running":
-                newtable.rename({'startDate': 'runStartTime', 'endDate': 'runEndTime'},
-                                axis=1, inplace=True)
-
-            # Store column names
-            new_cols = list(newtable.columns)
-            new_cols.remove('Date')
-            col_names[table_name] = new_cols
-
-        # Update self.daily_colnames
-        self.daily_colnames = col_names
-
-        return updated
-    # --- END FORMAT --- #
-
-    # --- JOIN METHOD(S) --- #
-    def join_all_tables(self, dfdict):
-        """ Merge all tables.
-        """
-
-        joined = join_two_tables(dfdict[self.tableNames[0]],
-                                 dfdict[self.tableNames[1]], 'Date', 'Date')
-
-        for name in self.tableNames[2:]:
-            joined = join_two_tables(joined, dfdict[name], 'Date', 'Date')
-
-        return joined
-    # --- END JOIN --- #
-
-    def add_more_runstats(self, dataframe):
-        """ Adds additional running stats to given dataframe, including
-            average pace and run type.
-        """
-
-        cols = list(dataframe.columns)
-
-        matches_duration = [find_substr_in_list("Avg. Duration", cols, self.testing),
-                            find_substr_in_list("Total Duration", cols, self.testing)]
-        matches_distance = [find_substr_in_list("Avg. Distance", cols, self.testing),
-                            find_substr_in_list("Total Distance", cols, self.testing)]
-
-        avg_duration_colname = next(item for item in matches_duration if item is not None)
-        avg_distance_colname = next(item for item in matches_distance if item is not None)
-
-        duration_unit = get_unit_from_string(avg_duration_colname)
-        distance_unit = get_unit_from_string(avg_distance_colname)
-
-        avg_pace_colname = "Avg. Pace ({unit})".format(unit=duration_unit + '/' + distance_unit)
-        run_type_colname = "Run Type"
-
-        dataframe[avg_pace_colname] = dataframe[avg_duration_colname] / dataframe[avg_distance_colname]
-        dataframe[run_type_colname] = dataframe[avg_duration_colname].map(get_run_type)
-
-    # --- AGGREGATE BY DATE --- #
-    def aggregate_daily(self, df_dict, export_date):
-        """ Group DataFrame rows by date. Each row will have a distinct date.
-            Aggregation method for each column is defined by method
-            get_aggregation_method().
-
-        Args:
-            db_path (str): File path of Apple Health database (.db) file.
-            export_date (str): Date formatted as "YYYYmmdd", used for naming
-                               resulting CSV file.
-
-        Returns:
-            full_aggregate (pd.DataFrame):
-        """
-
-        aggregated = {}
-
-        for name, table in df_dict.items():
-            agg_method = get_aggregation_method(self.daily_colnames[name])
-            aggregated[name] = group_by_date(table, agg_method, datetimecol='Date')
-
-        if self.testing:
-            for key, table in aggregated.items():
-                csv_name = "{date}_{name}_daily.csv".format(date=export_date, name=key)
-                csv_path = os.path.join(os.getcwd(), "testing", csv_name)
-                write_to_csv(table, csv_path, self.verbose)
-
-        full_aggregate = self.join_all_tables(aggregated)
-
-        self.add_more_runstats(full_aggregate)
-
-        # Write to CSV
-        csvname = "{date}_dailyaggregate.csv".format(date=export_date)
-        csvpath = os.path.join(os.getcwd(), "data/", csvname)
-        write_to_csv(full_aggregate, csvpath, self.verbose)
-
-        # Set class variable
-        self.aggregate_outputs['daily'] = full_aggregate
-
-    def aggregate_weekly_monthly(self, dailyagg, exportdate):
-        """
-        Args:
-            dailyagg (pd.DataFrame): Dataset grouped by day.
-                                    Output of get_daily_aggregate().
-            exportdate (str): Date formatted as a "YYYYmmdd" string.
-
-        Returns:
-            Tuple of 2 DataFrames, representing weekly and monthly
-            aggregates respectively.
-        """
-
-        cols_to_drop = ['runStartTime', 'runEndTime']
-        weeklyagg = dailyagg.drop(cols_to_drop, axis=1)
-        monthlyagg = dailyagg.drop(cols_to_drop, axis=1)
-
-        weeklyagg['Date'] = pd.to_datetime(weeklyagg['Date'], format="%Y-%m-%d")
-        weeklyagg['Week'] = weeklyagg['Date'] - pd.to_timedelta(6, unit='d')
-
-        monthlyagg['Date'] = pd.to_datetime(monthlyagg['Date'], format="%Y-%m-%d")
-        monthlyagg['Year'] = monthlyagg['Date'].dt.year
-        monthlyagg['Month'] = monthlyagg['Date'].dt.month
-
-        cols_to_add = ['Avg. Duration', 'Avg. Distance', 'Avg. Energy Burned From Run']
-        matching_cols = []
-
-        for i in range(len(cols_to_add)):
-            col = cols_to_add[i]
-            matches = [j for j in list(dailyagg.columns) if col.split('Avg. ')[-1] in j]
-
-            if len(matches) != 1:
-                msg = 'None or more than 1 match for {cur}: {matchvals}'
-                print(msg.format(cur=col, matchvals=matches), sys.stderr)
-                sys.exit(1)
-            else:
-                match = matches[0]
-                matching_cols.append(match)
-                matching_unit = get_unit_from_string(match)
-                cols_to_add[i] = "{root} ({unit})".format(root=col, unit=matching_unit)
-
-                if self.testing:
-                    print(cols_to_add[i] + ' is matched with ', match, end='\n')
-
-        newcolmapper = dict(zip(cols_to_add, matching_cols))
-
-        for newcol, currentcol in newcolmapper.items():
-            weeklyagg[newcol] = dailyagg[currentcol]
-            monthlyagg[newcol] = dailyagg[currentcol]
-
-        weeklyaggmethod = get_aggregation_method(list(weeklyagg.columns))
-        monthlyaggmethod = get_aggregation_method(list(monthlyagg.columns))
-
-        if self.testing:
-            print("\nWeekly agg method: ", weeklyaggmethod)
-            print("\nMonthly agg method: ", monthlyaggmethod, '\n')
-
-        weeklyagg = weeklyagg.groupby(pd.Grouper(key='Week', freq='W-MON')).agg(weeklyaggmethod).reset_index()
-        monthlyagg = monthlyagg.groupby(['Year', 'Month']).agg(monthlyaggmethod).reset_index()
-
-        self.add_more_runstats(weeklyagg)
-        self.add_more_runstats(monthlyagg)
-
-        # Write to CSV
-        csvpath = os.path.join(os.getcwd(), "data/")
-        namebase = "{date}_{type}aggregate.csv"
-        weeklyname = os.path.join(csvpath, namebase.format(date=exportdate, type="weekly"))
-        monthlyname = os.path.join(csvpath, namebase.format(date=exportdate, type="monthly"))
-        write_to_csv(weeklyagg, weeklyname, self.verbose)
-        write_to_csv(monthlyagg, monthlyname, self.verbose)
-
-        self.aggregate_outputs['weekly'] = weeklyagg
-        self.aggregate_outputs['monthly'] = monthlyagg
-
-    def run_all_aggregates(self):
-        """ Wrapper for all aggregation routines.
-        """
-        # Aggregate by day
-        self.aggregate_daily(self.formatted_data, self.exportDate)
-        daily_aggregate = self.aggregate_outputs['daily']
-
-        # Aggregate by week and month
-        self.aggregate_weekly_monthly(daily_aggregate, self.exportDate)
-
-    def resample_table(self, tablename, on='Date', write_to_file=True):
-        """ Resample a table by day. Fills missing values with NaN.
-
-        Note for ver. 1.4:
-            For now, its main use is to prepare a running heatmap. Only
-            implemented for and tested on tablename = 'Running'.
-
-        Args:
-            tablename (str): Name of the table to resample.
-
+            tablename (str): Name of the table.
+            freq (str): Determines the frequency of aggregation. Takes in
+                        'daily' or 'd', 'weekly' or 'w', and 'monthly' or 'm'.
         Kwargs:
-            on (str): The column name containing datetime values.
-                      Default is 'Date'.
-            write_to_file (bool): Toggle writing resulting resampled data to
-                                  CSV in data sub-directory.
+            return_table (bool): Default True. Returns the aggregated table
+                                 as the output.
+        """
+        if freq.startswith('d'):
+            agg = self.aggregate_daily(tablename, 'startDate')
+            # Store
+            self.daily_aggregates[tablename] = agg
+        elif freq.startswith('w'):
+            agg = self.aggregate_weekly(tablename)
+            self.weekly_aggregates[tablename] = agg
+        elif freq.startswith('m'):
+            agg = self.aggregate_monthly(tablename)
+            self.monthly_aggregates[tablename] = agg
+        else:
+            raise ValueError("Accepts 'daily' or 'd', 'weekly' or 'w', 'monthly' or 'm'.")
+
+        if return_table:
+            return agg
+
+    # -- COMBINE AGGREGATES -- #
+    def prep_to_join(self, frame):
+        """ Prepare given DataFrame to join with other DataFrames. Helper
+        function for join_aggregates.
+        """
+        # Turn to MultiIndex
+        if frame.columns.nlevels == 1:
+            frame.columns = pd.MultiIndex.from_product([frame.columns, ['']])
+        # Set 'Date' column as index
+        if frame.index.name != 'Date':
+            frame.set_index('Date', inplace=True)
+        # Drop startDate
+        if 'startDate' in frame.columns:
+            frame.drop(columns=['startDate'], inplace=True, level=0)
+
+        return frame
+
+    def join_aggregates(self, freq, table_list):
+        """
+        Args:
+            freq (str): Accepts 'daily' or 'd', 'weekly' or 'w', and
+                        'monthly' or 'm'. Designates the type of
+                        aggregation.
+            table_list (list): List of names of tables whose aggregates are to
+                               be joined.
+        Returns:
+            A DataFrame containing aggregates of all the table names
+            passed into RECORD_TABLES.
+        """
+        f = freq.lower()
+
+        if f.startswith('d'):
+            container = self.daily_aggregates
+        elif f.startswith('w'):
+            container = self.weekly_aggregates
+        elif f.startswith('m'):
+            container = self.monthly_aggregates
+        else:
+            raise ValueError("Accepts 'daily' or 'd', 'weekly' or 'w', \
+                             'monthly' or 'm'.")
+
+        for t in table_list:
+            if t not in container.keys():
+                self.aggregate_table(t, f[0], False)
+
+        # Queue to join all record table aggregates
+        queue = table_list.copy()
+        combined = container[queue[0]].copy()
+        combined = self.prep_to_join(combined)
+        queue.pop(0)
+        while queue:
+            df_right = self.prep_to_join(container[queue[0]].copy())
+            combined = combined.join(df_right, how='outer')
+            queue.pop(0)
+
+        return combined
+
+    def combine_health_aggs(self, freq):
+        return self.join_aggregates(freq, self.RECORD_TABLES)
+
+    def combine_workout_aggs(self, freq):
+        return self.join_aggregates(freq, self.WORKOUT_TABLES)
+
+    def combine_aggregates(self, freq, workouts, records):
+        """
+        Args:
+            freq (str):
+            workouts (list, or str): Accepts either a list of workout table
+                names or 'all' to indicate everything in WORKOUT_TABLES class
+                variable.
+            records (list, or str): Accepts either a list of record table
+                names or 'all' to indicate everything in RECORD_TABLES class
+                variable.
 
         Returns:
-            None
+            A DataFrame combining all the aggregates of tables listed within
+            workouts and records parameters.
         """
+        if records == 'all':
+            health_agg = self.combine_health_aggs(freq)
+        else:
+            health_agg = self.join_aggregates(freq, records)
 
-        data = self.formatted_data[tablename]
-        data[on] = pd.to_datetime(data[on], format="%Y-%m-%d")
+        if workouts == 'all':
+            workout_agg = self.combine_workout_aggs(freq)
+        else:
+            workout_agg = self.join_aggregates(freq, workouts)
 
-        # Group by day to remove extraneous date values
-        aggmethod = get_aggregation_method(list(data.columns))
-        daily_data = group_by_date(data, aggmethod, datetimecol=on)
+        combined = workout_agg.join(health_agg, how='outer')
 
-        # Resample
-        df = daily_data.set_index(on)
-        df.index = pd.to_datetime(df.index)
-        df = df.resample("D").asfreq()
+        return combined
 
-        # Adds average pace and additional running stats
-        if tablename == 'Running':
-            self.add_more_runstats(df)
+    def get_resampled_workout(self, workout_name):
+        """
+        """
+        if workout_name not in self.daily_aggregates.keys():
+            daily = self.daily_aggregates(workout_name, 'startDate')
+        else:
+            daily = self.daily_aggregates[workout_name]
 
-        # Adds Year, Month, Day column
-        df['Year'] = df.index.year
-        df['Month'] = df.index.month
-        df['Day'] = df.index.day
+        # Set index as the 'Date' column
+        resampled = daily.set_index('Date')
+        resampled = resampled.resample("D").asfreq()
 
-        # Adds 'Day of Week' column
-        num_to_day = dict(zip(range(7), DAYS_OF_WK))
-        df['Day of Week'] = df.index.dayofweek
-        df['Day of Week'] = df['Day of Week'].map(num_to_day)
+        # Add 'Calendar Week' column
+        resampled['Calendar Week'] = resampled.index.isocalendar().week
 
-        # Adds 'Calendar Week' column
-        df['Calendar Week'] = df.index.isocalendar().week
+        # Store
+        self.resampled_tables[workout_name] = resampled
 
-        if write_to_file:
-            namebase = "{date}_{name}_resampledDaily.csv"
-            file_name = namebase.format(date=self.exportDate, name=tablename)
-            csvpath = os.path.join(os.getcwd(), "data", file_name)
-            write_to_csv(df, csvpath, self.verbose)
-
-        self.resample_outputs[tablename] = df
-    # --- END AGGREGATE --- #
-
-
-# --- RUN PROCESSING ROUTINES --- #
-def get_processed_data(database_path, tbls_to_agg, tbls_to_resample,
-                       return_outputs=False, verbose=True, write_to_csv=True):
-    """ Runs all processing routines on given database file.
-
-    Args:
-        database_path (str or PosixPath): Path of database file to read.
-        tbls_to_agg (list): List of names of the table(s) to run aggregation
-                            routines on.
-        tbls_to_resample (list): List of names of the table(s) from database
-                                to run resample_table() on.
-    Kwargs:
-        return_outputs (bool): Toggle whether to return the output
-                               DataFrames. Default False.
-        verbose (bool): Toggle print functions.
-        resample_var (str or list): Name of the table(s) from database to run
-                            resampling function get_resampled_data() on.
-        write_csv (bool): Toggle to write output DataFrames to CSV. Default
-                          is True.
-
-    Returns:
-        If return_outputs = True, returns a tuple of the export date formatted
-        as a string "YYYYmmdd" and two dictionaries ("YYYYmmdd", dict1, dict2).
-        `dict1` holds aggregated DataFrames keyed by their aggregation method
-        (['daily', 'weekly', 'monthly']). `dict2` holds resampled DataFrames
-        keyed by the name of the resampled table as it appears in the
-        {YYYYmmdd}_applehealth.db file.
-
-        Example: get_processed_data(...) --> ({'daily': pd.DataFrame,
-                                               'weekly': pd.DataFrame,
-                                               'monthly': pd.DataFrame
-                                                },
-                                              {'Running': pd.DataFrame})
-    """
-
-    hdata = DatasetPrep(database_path, tbls_to_agg, verbose, testing=False)
-    hdata.load_database()
-    hdata.run_all_aggregates()  # Run aggregating routines
-
-    # Run resampling routine
-    for i in tbls_to_resample:
-        hdata.resample_table(i, on='Date', write_to_file=write_to_csv)
-
-    if return_outputs:
-        return (hdata.get_export_date(),
-                hdata.get_all_aggregates(),
-                hdata.get_all_resamples())
-
-
-# --- IF RUNNING PREPAREDATASETS FROM ANOTHER PY FILE --- #
-def load_processed_data(agg_tables=TB_OF_INTEREST, resample_tables=['Running'],
-                        verbose=False):
-    """ Gets list of available db files inside 'data/' subdirectory
-        and runs all data processing routines.
-
-        Use this if trying to run processing routines from another
-        file.
-
-    Kwargs:
-        agg_tables (list): List of table names to aggregate by day, week,
-                           and month.
-        resample_tables (list): List of table names to resample by day.
-        verbose (bool): Toggle print functions.
-
-    Returns:
-        A tuple of the export date formatted as a string "YYYYmmdd" and two
-        dictionaries ("YYYYmmdd", dict1, dict2). `dict1` holds aggregated
-        DataFrames keyed by their aggregation method (['daily', 'weekly',
-        'monthly']). `dict2` holds resampled DataFrames keyed by the name of
-        the resampled table as it appears in the {YYYYmmdd}_applehealth.db
-        file.
-    """
-
-    db_list = list(sorted(Path('data/').glob('*applehealth.db')))
-    most_recent_ver = db_list[-1]
-
-    if verbose:
-        print('Available db files:\n')
-        for i in db_list:
-            print(i)
-        print('Reading from... {0}'.format(most_recent_ver))
-
-    return get_processed_data(most_recent_ver, tbls_to_agg=agg_tables,
-                              tbls_to_resample=resample_tables,
-                              return_outputs=True)
+        return resampled
 
 
 if __name__ == '__main__':
 
-    if len(sys.argv) != 2:
-        print("USAGE: $ python preparedatasets.py path/to/applehealthdatabase.db",
-              file=sys.stderr)
-        sys.exit(1)
+    write_csv = True
 
-    dbpath = sys.argv[1]
-    get_processed_data(dbpath, tbls_to_agg=TB_OF_INTEREST,
-                       tbls_to_resample=['Running'], verbose=True,
-                       write_to_csv=True)
+    # Default tables
+    workout_tables = ['Running']
+    record_tables = ['MenstrualFlow', 'RestingHeartRate', 'VO2Max', 'BodyMass',
+                     'HeartRateVariabilitySDNN', 'HeartRate', 'StepCount',
+                     'RespiratoryRate', 'BloodPressureDiastolic',
+                     'BloodPressureSystolic'
+                     ]
+
+    parser = argparse.ArgumentParser(description=""
+                                     )
+    parser.add_argument('-o', '--open-db',
+                        type=str, nargs='?', required=True,
+                        help='The path to health database file \
+                             `*_applehealth.db`')
+    parser.add_argument('-w', '--workouts',
+                        default=workout_tables,
+                        type=str, nargs='+', required=False)
+    parser.add_argument('-r', '--records',
+                        default=record_tables,
+                        type=str, nargs='+', required=False)
+
+    args = vars(parser.parse_args())
+
+    dbpath = args['open_db']
+
+    data = DatasetPrep(dbpath, workout_tables=args['workouts'],
+                       record_tables=args['records'],
+                       verbose=True, testing=True)
+    file_date = data.get_export_date()
+    file_path = 'data/'
+
+    # Do not include 'HeartRate' in aggregates.
+    records_to_aggregate = args['records'].copy()
+    if 'HeartRate' in args['records']:
+        records_to_aggregate.remove('HeartRate')
+
+    # Get combined aggregates and write to csv
+    combined_daily = data.combine_aggregates('d', workouts=['Running'],
+                                             records=records_to_aggregate)
+    combined_weekly = data.combine_aggregates('w', workouts=['Running'],
+                                              records=records_to_aggregate)
+    combined_monthly = data.combine_aggregates('m', workouts=['Running'],
+                                               records=records_to_aggregate)
+
+    # Daily resampled runs
+    resampled_runs = data.get_resampled_workout('Running')
+
+    if write_to_csv:
+        file_prefix = f"{file_path}{file_date}_"
+        combined_daily.to_csv(f"{file_prefix}dailyAggregate.csv")
+        combined_weekly.to_csv(f"{file_prefix}weeklyAggregate.csv")
+        combined_monthly.to_csv(f"{file_prefix}monthlyAggregate.csv")
+        resampled_runs.to_csv(f"{file_prefix}running_resampledDaily.csv")
