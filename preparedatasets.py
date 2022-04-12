@@ -12,6 +12,7 @@ __version__ = '1.5'
 
 import argparse
 import re
+from matplotlib.pyplot import table
 import pandas as pd
 import healthdatabase as hd
 from settings import (AGG_D_SUFFIX,
@@ -20,7 +21,6 @@ from settings import (AGG_D_SUFFIX,
                       RESAMPLE_D_SUFFIX,
                       OUTPUT_SUBDIR,
                       )
-
 from pathlib import Path
 from utils import (extract_export_date,
                    get_unit_from_string)
@@ -281,7 +281,7 @@ class DatasetPrep(object):
     # --- END ACCESSORS --- #
 
     # --- SAVE FILE --- #
-    def write_to_csv(self, dataframe, file_type, verbose=True):
+    def write_to_csv(self, dataframe, file_type, tablename=None, verbose=True):
         """ Writes the given DataFrame to CSV according to file name
         conventions.
 
@@ -293,6 +293,10 @@ class DatasetPrep(object):
                 resampled data respectively.
 
         Kwargs:
+            tablename (str or None): Table name to prepend to the file suffix.
+            Default None.
+                Example: for tablename = 'Running', resulting file name is:
+                         "20220320_Running_resampledDaily.csv"
             verbose (bool): Toggle whether to print the resulting file path.
         """
         file_suffix_map = {'d-agg': AGG_D_SUFFIX,
@@ -305,7 +309,9 @@ class DatasetPrep(object):
             raise ValueError(f"write_to_csv() takes in one of the following: \
                              ['d-agg', 'w-agg', 'm-agg', 'd-resample']")
 
-        file_prefix = f"{OUTPUT_SUBDIR}{self.DB_EXPORT_DATE}_"
+        file_prefix = f"{OUTPUT_SUBDIR}/{self.DB_EXPORT_DATE}_"
+        if tablename:
+            file_prefix = file_prefix + f'{tablename}_'
         file_suffix = file_suffix_map[file_type]
         file_name = f"{file_prefix}{file_suffix}.csv"
         dataframe.to_csv(file_name)
@@ -821,6 +827,7 @@ class DatasetPrep(object):
         # Write to file
         if write_to_file:
             data.write_to_csv(resampled, file_type=f"{freq[0]}-resample",
+                              tablename=workout_name,
                               verbose=True)
 
         return resampled
