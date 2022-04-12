@@ -614,7 +614,7 @@ class DatasetPrep(object):
             cols_to_drop = ['startDate']
 
             # Find and drop indoor workout column, if found
-            pattern = re.compile(".*Indoor Workout.*")
+            pattern = re.compile(r".*Indoor Workout.*")
             matches = list(filter(pattern.match, daily.columns))
             if len(matches) == 1:
                 cols_to_drop.append(matches[0])
@@ -759,13 +759,7 @@ class DatasetPrep(object):
         return combined
 
     def combine_health_aggs(self, freq):
-
-        combined = self.join_aggregates(freq, self.RECORD_TABLES)
-        if freq[0] == 'd':
-            # Flatten MultiIndex into just level 0
-            combined.columns = combined.columns.droplevel(1)
-
-        return 
+        return self.join_aggregates(freq, self.RECORD_TABLES)
 
     def combine_workout_aggs(self, freq):
         return self.join_aggregates(freq, self.WORKOUT_TABLES)
