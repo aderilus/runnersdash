@@ -18,7 +18,7 @@ from settings import (AGG_D_SUFFIX,
                       AGG_W_SUFFIX,
                       AGG_M_SUFFIX,
                       RESAMPLE_D_SUFFIX,
-                      OUTPUT_SUBDIR,
+                      PD_OUTPUT_SUBDIR,
                       )
 from pathlib import Path
 from utils import (extract_export_date,
@@ -308,7 +308,7 @@ class DatasetPrep(object):
             raise ValueError(f"write_to_csv() takes in one of the following: \
                              ['d-agg', 'w-agg', 'm-agg', 'd-resample']")
 
-        file_prefix = f"{OUTPUT_SUBDIR}/{self.DB_EXPORT_DATE}_"
+        file_prefix = f"{PD_OUTPUT_SUBDIR}/{self.DB_EXPORT_DATE}_"
         if tablename:
             file_prefix = file_prefix + f'{tablename}_'
         file_suffix = file_suffix_map[file_type]

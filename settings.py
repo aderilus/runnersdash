@@ -1,4 +1,4 @@
-""" Settings for extractapplehealth.py, preparedatasets.py.
+""" Settings for preparedatasets.py and Dash app.
 """
 from pathlib import Path
 
