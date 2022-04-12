@@ -2,6 +2,7 @@
 """
 
 import pandas as pd
+import settings
 from pathlib import Path
 from numpy import sort
 from calendar import monthrange, monthcalendar, week
@@ -53,7 +54,7 @@ def get_latest_exportdate():
     """ Searches 'data/' folder for the date of most recent csv
         files. Returns the date as a string formatted as "YYYYmmdd".
     """
-    path_to_search = Path('data/')
+    path_to_search = get_project_root().joinpath('data')
     csvlist = list(sorted(path_to_search.glob('*.csv')))
 
     if len(csvlist) == 0:
@@ -166,17 +167,17 @@ def get_csv_file_path(file_type, verbose=False):
             ['dailyagg', 'weeklyagg', 'monthlyagg', 'running-resampled']")
 
     export_date = get_latest_exportdate()
-    file_suffix = 'dailyaggregate'
+    file_suffix = settings.AGG_D_SUFFIX
 
     if file_type == 'weeklyagg':
-        file_suffix = 'weeklyaggregate'
+        file_suffix = settings.AGG_W_SUFFIX
     elif file_type == 'monthlyagg':
-        file_suffix = 'monthlyaggregate'
+        file_suffix = settings.AGG_M_SUFFIX
     elif file_type == 'running-resampled':
-        file_suffix = 'Running_resampledDaily'
+        file_suffix = f'Running_{settings.RESAMPLE_D_SUFFIX}'
 
     file_name = "{0}_{1}.csv".format(export_date, file_suffix)
-    file_path = get_project_root().joinpath('data', file_name)
+    file_path = get_project_root().joinpath(settings.PD_OUTPUT_SUBDIR, file_name)
 
     if verbose:
         print("Reading from... {0}".format(file_path))
@@ -185,48 +186,46 @@ def get_csv_file_path(file_type, verbose=False):
 
 
 def get_latest_daily_agg(verbose=False):
-    """ Reads in the file "{date}_dailyaggregate.csv" and returns it
+    """ Reads in the file "{date}_dailyAggregate.csv" and returns it
         as a DataFrame.
     """
-    # cols_as_datetime = ['runStartTime', 'runEndTime', 'Date']
-    cols_as_datetime = {'runStartTime': '%Y-%m-%d %H:%M:%S%z',
-                        'runEndTime': '%Y-%m-%d %H:%M:%S %z',
-                        'Date': '%Y-%m-%d'}
-
-    dtype_map = {'Run Type': str}
-
     data_path = get_csv_file_path('dailyagg', verbose)
-    data = pd.read_csv(data_path, parse_dates=list(cols_as_datetime.keys()),
-                       dtype=dtype_map, index_col=0,
+    data = pd.read_csv(data_path,
+                       index_col='Date',
+                       parse_dates=True,
                        infer_datetime_format=True)
-
-    for key, val in cols_as_datetime.items():
-        data[key] = pd.to_datetime(data[key], yearfirst=True,
-                                   format=val)
 
     return data
 
 
 def get_latest_weekly_agg(verbose=False):
-    """ Reads in the file "{date}_weeklyaggregate.csv" and returns it
+    """ Reads in the file "{date}_weeklyAggregate.csv" and returns it
         as a DataFrame.
     """
     data_path = get_csv_file_path('weeklyagg', verbose)
-    data = pd.read_csv(data_path, parse_dates=['Week'],
-                       index_col=0, infer_datetime_format=True)
-    data['Week'] = pd.to_datetime(data['Week'], yearfirst=True,
-                                  format='%Y-%m-%d')
+    data = pd.read_csv(data_path,
+                       header=[0, 1],
+                       parse_dates=True,
+                       index_col=0,
+                       infer_datetime_format=True)
+
+    # Rename any Unnamed column level 1's
+    renamed_columns = [(x[0], '') if x[1].startswith("Unnamed:") else x for x in data.columns.tolist()]
+    data.columns = pd.MultiIndex.from_tuples(renamed_columns)
+
     return data
 
 
 def get_latest_monthly_agg(verbose=False):
-    """ Reads in the file "{date}_monthlyaggregate.csv" and returns it
+    """ Reads in the file "{date}_monthlyAggregate.csv" and returns it
         as a DataFrame.
     """
-    dtype_map = {'Month': int, 'Year': int}
-
     data_path = get_csv_file_path('monthlyagg', verbose)
-    data = pd.read_csv(data_path, dtype=dtype_map, index_col=0)
+    data = pd.read_csv(data_path,
+                       header=[0, 1],
+                       parse_dates=True,
+                       index_col=0,
+                       infer_datetime_format=True)
 
     return data
 
@@ -235,12 +234,12 @@ def get_resampled_runs(verbose=False):
     """ Returns the latest version of "{date}_Running_resampledDaily.csv" as
         a DataFrame.
     """
-    cols_as_datetime = ['Date', 'runStartTime', 'runEndTime']
-    dtype_map = {'Year': int, 'Month': int, 'Day': int,
-                 'Day of Week': str, 'Calendar Week': int,
-                 'Run Type': str}
+    dtype_map = {'Calendar Week': int,
+                 }
     data_path = get_csv_file_path('running-resampled', verbose)
-    data = pd.read_csv(data_path, parse_dates=cols_as_datetime,
+    data = pd.read_csv(data_path,
+                       index_col='Date',
+                       parse_dates=True,
                        dtype=dtype_map)
 
     return data

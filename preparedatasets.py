@@ -18,7 +18,7 @@ from settings import (AGG_D_SUFFIX,
                       AGG_W_SUFFIX,
                       AGG_M_SUFFIX,
                       RESAMPLE_D_SUFFIX,
-                      PD_OUTPUT_SUBDIR,
+                      PD_OUTPUT_PATH,
                       )
 from pathlib import Path
 from utils import (extract_export_date,
@@ -308,7 +308,7 @@ class DatasetPrep(object):
             raise ValueError(f"write_to_csv() takes in one of the following: \
                              ['d-agg', 'w-agg', 'm-agg', 'd-resample']")
 
-        file_prefix = f"{PD_OUTPUT_SUBDIR}/{self.DB_EXPORT_DATE}_"
+        file_prefix = f"{PD_OUTPUT_PATH}/{self.DB_EXPORT_DATE}_"
         if tablename:
             file_prefix = file_prefix + f'{tablename}_'
         file_suffix = file_suffix_map[file_type]
@@ -570,7 +570,8 @@ class DatasetPrep(object):
         # Drop certain columns for certain tables
         if tablename in self.WORKOUT_TABLES:
             cols_to_drop = ['sourceName', 'Was User Entered',
-                            'WorkoutEvent', 'WorkoutRoute']
+                            'WorkoutEvent', 'WorkoutRoute',
+                            'endDate']
         elif tablename == 'MenstrualFlow':
             cols_to_drop = ['Menstrual Flow']
         else:
@@ -610,7 +611,7 @@ class DatasetPrep(object):
 
         # Drop columns
         if table_name in self.WORKOUT_TABLES:
-            cols_to_drop = ['startDate', 'endDate']
+            cols_to_drop = ['startDate']
 
             # Find and drop indoor workout column, if found
             pattern = re.compile(".*Indoor Workout.*")
@@ -693,15 +694,16 @@ class DatasetPrep(object):
         """ Prepare given DataFrame to join with other DataFrames. Helper
         function for join_aggregates.
         """
-        # Turn to MultiIndex
-        if frame.columns.nlevels == 1:
-            frame.columns = pd.MultiIndex.from_product([frame.columns, ['']])
         # Set 'Date' column as index
         if frame.index.name != 'Date':
             frame.set_index('Date', inplace=True)
         # Drop startDate
         if 'startDate' in frame.columns:
-            frame.drop(columns=['startDate'], inplace=True, level=0)
+            if frame.columns.nlevels > 1:
+                lvl = 0
+            else:
+                lvl = None
+            frame.drop(columns=['startDate'], inplace=True, level=lvl)
 
         return frame
 
@@ -714,10 +716,10 @@ class DatasetPrep(object):
                         'monthly' or 'm'. Designates the type of
                         aggregation.
             table_list (list): List of names of tables whose aggregates are to
-                               be joined.
+                               be joined. Table list must be all type Workout or
+                               type Record.
         Returns:
-            A DataFrame containing aggregates of all the table names
-            passed into RECORD_TABLES.
+            A DataFrame combining aggregated data of all the listed tables.
         """
         f = freq.lower()
 
@@ -742,13 +744,28 @@ class DatasetPrep(object):
         queue.pop(0)
         while queue:
             df_right = self.prep_to_join(container[queue[0]].copy())
+
+            # If one is a MultiIndex
+            if combined.columns.nlevels != df_right.columns.nlevels:
+                if combined.columns.nlevels > df_right.columns.nlevels:
+                    # Turn to MultiIndex with 2 levels
+                    df_right.columns = pd.MultiIndex.from_product([df_right.columns, ['']])
+                else:
+                    combined.columns = pd.MultiIndex.from_product([combined.columns, ['']])
+
             combined = combined.join(df_right, how='outer')
             queue.pop(0)
 
         return combined
 
     def combine_health_aggs(self, freq):
-        return self.join_aggregates(freq, self.RECORD_TABLES)
+
+        combined = self.join_aggregates(freq, self.RECORD_TABLES)
+        if freq[0] == 'd':
+            # Flatten MultiIndex into just level 0
+            combined.columns = combined.columns.droplevel(1)
+
+        return 
 
     def combine_workout_aggs(self, freq):
         return self.join_aggregates(freq, self.WORKOUT_TABLES)
