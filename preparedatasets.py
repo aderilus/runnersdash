@@ -6,30 +6,6 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         2. "[date]_weeklyAggregate.csv"
                         3. "[date]_monthlyAggregate.csv"
                         4. "[date]_running_resampledDaily.csv"
-
-ver 1.2:
-    - Reorganizes routines into class DatasetPrep.
-    - Implemented linting to clean up code
-
-ver. 1.3:
-    - Adds columns 'Day of Week' and 'Calendar Week' to
-      resampled running data (see 4th listed output).
-
-ver. 1.4:
-    - Added class variables to hold processed data (`aggregate_outputs`
-      and `resample_outputs`). Also added corresponding accessor methods.
-    - Renamed aggregating and resampling routines and removed their return
-      statements. They instead set the aforementioned class variables with
-      their output.
-    - Created function `load_processed_data()` to find and read the most recent
-      database file, create a DatasetPrep obj and run all processing routines.
-      Wrapped the processing routines in function `get_processed_data()`.
-    - Can run preparedatasets from the terminal or import in a file and run
-      `load_processed_data()`
-
-ver 1.5:
-    - Implemented argparse
-    - Rewrote routines for loading, aggregating, and combining tables.
 """
 
 __version__ = '1.5'
@@ -38,6 +14,12 @@ import argparse
 import re
 import pandas as pd
 import healthdatabase as hd
+from settings import (AGG_D_SUFFIX,
+                      AGG_W_SUFFIX,
+                      AGG_M_SUFFIX,
+                      RESAMPLE_D_SUFFIX,
+                      OUTPUT_SUBDIR,
+                      )
 
 from pathlib import Path
 from utils import (extract_export_date,
@@ -45,12 +27,6 @@ from utils import (extract_export_date,
 
 
 # --- HELPER FUNCTIONS --- #
-def write_to_csv(dataframe, filename, verbose):
-    dataframe.to_csv(filename)
-    if verbose:
-        print('Wrote full DataFrame to {n}'.format(n=filename))
-
-
 def find_substr_in_list(txt, listobj, verbose):
     """ Returns string in listobj if txt matches all or part of the string.
 
@@ -285,6 +261,9 @@ class DatasetPrep(object):
 
     # --- ACCESSOR METHODS ---- #
     def get_export_date(self):
+        """ Returns the database export date as a string formatted as
+        'YYYYmmdd'.
+        """
         return self.DB_EXPORT_DATE
 
     def get_aggregates_dict(self, freq):
@@ -301,9 +280,43 @@ class DatasetPrep(object):
                              'w', 'weekly', 'm', 'monthly'].")
     # --- END ACCESSORS --- #
 
+    # --- SAVE FILE --- #
+    def write_to_csv(self, dataframe, file_type, verbose=True):
+        """ Writes the given DataFrame to CSV according to file name
+        conventions.
+
+        Args:
+            dataframe (pd.DataFrame): The DataFrame to write to file.
+            file_type (str): Signifies the frequency of the dataset. Takes in
+                any of the following: ['d-agg', 'w-agg', 'm-agg', 'd-resample'],
+                representing daily, weekly, monthly aggregates, and daily
+                resampled data respectively.
+
+        Kwargs:
+            verbose (bool): Toggle whether to print the resulting file path.
+        """
+        file_suffix_map = {'d-agg': AGG_D_SUFFIX,
+                           'w-agg': AGG_W_SUFFIX,
+                           'm-agg': AGG_M_SUFFIX,
+                           'd-resample': RESAMPLE_D_SUFFIX,
+                           }
+
+        if file_type not in list(file_suffix_map.keys()):
+            raise ValueError(f"write_to_csv() takes in one of the following: \
+                             ['d-agg', 'w-agg', 'm-agg', 'd-resample']")
+
+        file_prefix = f"{OUTPUT_SUBDIR}{self.DB_EXPORT_DATE}_"
+        file_suffix = file_suffix_map[file_type]
+        file_name = f"{file_prefix}{file_suffix}.csv"
+        dataframe.to_csv(file_name)
+
+        if verbose:
+            print(f'Wrote full DataFrame to {file_name}')
+
     # --- FORMATTING FUNCTIONS --- #
     def format_menstrual_flow(self, dataframe):
-        """
+        """ Returns table='MenstrualFlow' as a DataFrame following certain
+        formatting rules.
         """
         # Remove prefix from value column
         dataframe['value'] = dataframe['value'].apply(lambda x: x.split("Flow")[-1])
@@ -323,6 +336,8 @@ class DatasetPrep(object):
         return dataframe
 
     def format_record_table(self, tablename, dataframe):
+        """ Returns formatted table of type Record as a DataFrame.
+        """
         if tablename == "MenstrualFlow":
             df = self.format_menstrual_flow(dataframe)
         else:
@@ -342,7 +357,7 @@ class DatasetPrep(object):
         return df
 
     def format_workout_table(self, tablename, dataframe):
-        """
+        """ Returns formatted table of type Workout as a DataFrame.
         """
         # Format numeric columns
         numeric_cols = ['duration', 'totalDistance', 'totalEnergyBurned']
@@ -484,7 +499,7 @@ class DatasetPrep(object):
         # Add a Date column from startDate
         aggregated_table['Date'] = aggregated_table['startDate'].dt.date
 
-        # If there exists a duration and distance column add avg pace column
+        # If there exists a duration and distance column, add Avg Pace column
         durations_filter = find_substr_in_list('Duration', cols, verbose=self.testing)
         distances_filter = find_substr_in_list('Total Distance', cols, verbose=self.testing)
 
@@ -508,6 +523,9 @@ class DatasetPrep(object):
         return resultant[['Date'] + new_columns]
 
     def rename_by_agg(self, dataframe, aggregation_map):
+        """ Returns a DataFrame with renamed columns according to their
+        aggregation methods ('aggregation_map').
+        """
         new_column_names = {}
 
         for col in dataframe.columns:
@@ -577,7 +595,7 @@ class DatasetPrep(object):
         return resultant
 
     def aggregate_weekly(self, table_name):
-        """ Returns the DataFrame aggregated by week, on its date_column.
+        """ Returns the DataFrame aggregated weekly.
         """
         date_column = 'Date'
         if table_name in self.daily_aggregates.keys():
@@ -619,6 +637,8 @@ class DatasetPrep(object):
         return weekly_aggregated
 
     def aggregate_monthly(self, table_name):
+        """ Returns the DataFrame aggregated monthly.
+        """
         date_column = 'Date'
 
         if table_name in self.daily_aggregates.keys():
@@ -681,7 +701,9 @@ class DatasetPrep(object):
         return frame
 
     def join_aggregates(self, freq, table_list):
-        """
+        """ Joins all aggregates of tables in the given list, and returns a
+        DataFrame.
+
         Args:
             freq (str): Accepts 'daily' or 'd', 'weekly' or 'w', and
                         'monthly' or 'm'. Designates the type of
@@ -726,37 +748,60 @@ class DatasetPrep(object):
     def combine_workout_aggs(self, freq):
         return self.join_aggregates(freq, self.WORKOUT_TABLES)
 
-    def combine_aggregates(self, freq, workouts, records):
-        """
+    def combine_aggregates(self, freq, workout_tables, record_tables, write_to_file=False):
+        """ Combine aggregates of tables with names given within the
+        'workout_tables' and 'record_tables' parameters, returning the result
+        as a DataFrame.
+
         Args:
-            freq (str):
-            workouts (list, or str): Accepts either a list of workout table
-                names or 'all' to indicate everything in WORKOUT_TABLES class
-                variable.
-            records (list, or str): Accepts either a list of record table
+            freq (str): Aggregate frequency. Takes in the following:
+                ['d', 'daily', 'w', 'weekly', 'm', 'monthly']
+            workout_tables (list, or str): Accepts either a list of workout
+                table names or 'all' to indicate everything in WORKOUT_TABLES
+                class variable.
+            record_tables (list, or str): Accepts either a list of record table
                 names or 'all' to indicate everything in RECORD_TABLES class
                 variable.
+
+        Kwargs:
+            write_to_file (bool): Toggle whether to write resulting DataFrame
+                to a CSV. Default False.
 
         Returns:
             A DataFrame combining all the aggregates of tables listed within
             workouts and records parameters.
         """
-        if records == 'all':
+        if record_tables == 'all':
             health_agg = self.combine_health_aggs(freq)
         else:
-            health_agg = self.join_aggregates(freq, records)
+            health_agg = self.join_aggregates(freq, record_tables)
 
-        if workouts == 'all':
+        if workout_tables == 'all':
             workout_agg = self.combine_workout_aggs(freq)
         else:
-            workout_agg = self.join_aggregates(freq, workouts)
+            workout_agg = self.join_aggregates(freq, workout_tables)
 
         combined = workout_agg.join(health_agg, how='outer')
 
+        if write_to_file:
+            freq_init = freq[0]
+            data.write_to_csv(combined, file_type=f'{freq_init}-agg',
+                              verbose=True)
+
         return combined
 
-    def get_resampled_workout(self, workout_name):
-        """
+    def get_resampled_workout(self, workout_name, freq='d', write_to_file=False):
+        """ Returns table of type Workout as a resampled DataFrame with the
+        given frequency.
+
+        Args:
+            workout_name (str): Workout table name to resample.
+
+        Kwargs:
+            freq (str): Resample frequency. For now, only daily resampling is
+                supported, and so only takes in 'd' or 'daily'. Default 'd'.
+            write_to_file (bool): Toggle whether to write resulting DataFrame
+                to a CSV. Default False.
         """
         if workout_name not in self.daily_aggregates.keys():
             daily = self.daily_aggregates(workout_name, 'startDate')
@@ -773,13 +818,15 @@ class DatasetPrep(object):
         # Store
         self.resampled_tables[workout_name] = resampled
 
+        # Write to file
+        if write_to_file:
+            data.write_to_csv(resampled, file_type=f"{freq[0]}-resample",
+                              verbose=True)
+
         return resampled
 
 
 if __name__ == '__main__':
-
-    write_csv = True
-
     # Default tables
     workout_tables = ['Running']
     record_tables = ['MenstrualFlow', 'RestingHeartRate', 'VO2Max', 'BodyMass',
@@ -807,29 +854,26 @@ if __name__ == '__main__':
 
     data = DatasetPrep(dbpath, workout_tables=args['workouts'],
                        record_tables=args['records'],
-                       verbose=True, testing=True)
-    file_date = data.get_export_date()
-    file_path = 'data/'
+                       verbose=True, testing=False)
 
     # Do not include 'HeartRate' in aggregates.
-    records_to_aggregate = args['records'].copy()
+    records_to_agg = args['records'].copy()
     if 'HeartRate' in args['records']:
-        records_to_aggregate.remove('HeartRate')
+        records_to_agg.remove('HeartRate')
 
     # Get combined aggregates and write to csv
-    combined_daily = data.combine_aggregates('d', workouts=['Running'],
-                                             records=records_to_aggregate)
-    combined_weekly = data.combine_aggregates('w', workouts=['Running'],
-                                              records=records_to_aggregate)
-    combined_monthly = data.combine_aggregates('m', workouts=['Running'],
-                                               records=records_to_aggregate)
+    combined_daily = data.combine_aggregates('d', workout_tables=['Running'],
+                                             record_tables=records_to_agg,
+                                             write_to_file=True,
+                                             )
+    combined_weekly = data.combine_aggregates('w', workout_tables=['Running'],
+                                              record_tables=records_to_agg,
+                                              write_to_file=True,
+                                              )
+    combined_monthly = data.combine_aggregates('m', workout_tables=['Running'],
+                                               record_tables=records_to_agg,
+                                               write_to_file=True,
+                                               )
 
     # Daily resampled runs
-    resampled_runs = data.get_resampled_workout('Running')
-
-    if write_to_csv:
-        file_prefix = f"{file_path}{file_date}_"
-        write_to_csv(combined_daily, f"{file_prefix}dailyAggregate.csv", verbose=True)
-        write_to_csv(combined_weekly, f"{file_prefix}weeklyAggregate.csv", verbose=True)
-        write_to_csv(combined_monthly, f"{file_prefix}monthlyAggregate.csv", verbose=True)
-        write_to_csv(resampled_runs, f"{file_prefix}running_resampledDaily.csv", verbose=True)
+    resampled_runs = data.get_resampled_workout('Running', write_to_file=True)
