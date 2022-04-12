@@ -2,6 +2,7 @@
 """
 
 import pandas as pd
+import re
 import settings
 from pathlib import Path
 from numpy import sort
@@ -9,18 +10,18 @@ from calendar import monthrange, monthcalendar, week
 from datetime import datetime, timedelta, date
 
 # --- Constants --- #
-COLMAPPER = {'distance': 'Total Distance (km)',
-             'duration': 'Total Duration (min)',
-             'avg distance': 'Avg. Distance (km)',
-             'avg duration': 'Avg. Duration (min)',
-             'avg vo2': 'Avg. VO2Max (mL/min·kg)',
-             'weight': 'Avg. BodyMass (lb)',
-             'calories': 'Total Energy Burned From Run (Cal)',
-             'avg rhr': 'Avg. Resting HR (bpm)',
-             'date': 'Date',
-             'week': 'Week',
-             'avg pace': 'Avg. Pace (min/km)',
-             'menstrual flow': 'MenstrualFlow (num)'}
+# COLMAPPER = {'distance': 'Total Distance (km)',
+#              'duration': 'Total Duration (min)',
+#              'avg distance': 'Avg. Distance (km)',
+#              'avg duration': 'Avg. Duration (min)',
+#              'avg vo2': 'Avg. VO2Max (mL/min·kg)',
+#              'weight': 'Avg. BodyMass (lb)',
+#              'calories': 'Total Energy Burned From Run (Cal)',
+#              'avg rhr': 'Avg. Resting HR (bpm)',
+#              'date': 'Date',
+#              'week': 'Week',
+#              'avg pace': 'Avg. Pace (min/km)',
+#              'menstrual flow': 'MenstrualFlow (num)'}
 DAYS_OF_WK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 DAY_MAP = dict(zip(range(1, 8), DAYS_OF_WK))  # Use date.isoweekday()
 MONTHS = ['January', 'February', 'March', 'April', 'May',
@@ -146,6 +147,38 @@ def get_column_extremas(df, column_name):
     maximum = sorted_values[-1]
 
     return (minimum, maximum)
+
+
+def colmapper(substr, column_list):
+    """ Given a substring, finds its first instance within the
+    column list (case-sensitive).
+
+    Example:
+        Let `w` be the weekly aggregate DataFrame columns (MultiIndex),
+        containing 4 instances of 'Total Distance (km)'.
+
+        colmapper("Total Distance", w) -> 'Total Distance (km)'
+        colmapper("total distance", w) -> ValueError
+
+    Args:
+        substr (str): Substring (case-sensitive) to find within column list.
+        column_list (list): DataFrame list of columns. Can be single or
+            MultiIndex.
+    """
+
+    # If column_list is MultiIndex, flatten to the first level
+    if type(column_list[0]) == tuple:
+        cols = [c[0] for c in column_list]
+    else:
+        cols = column_list
+
+    pattern = re.compile(fr".*{substr}.*")
+    matches = list(filter(pattern.match, cols))
+
+    if not matches:
+        raise ValueError(f"No matches found for {substr}.")
+
+    return matches[0]
 
 
 # --- LOAD DATA ROUTINES --- #
