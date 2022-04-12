@@ -12,7 +12,6 @@ __version__ = '1.5'
 
 import argparse
 import re
-from matplotlib.pyplot import table
 import pandas as pd
 import healthdatabase as hd
 from settings import (AGG_D_SUFFIX,
