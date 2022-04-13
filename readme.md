@@ -3,7 +3,7 @@
 !['Screenshot'](screenshots/2022-03-20_screenshot.gif)
 
 ## Implemented visualizations
-1. Time series graphs across a year, binned weekly and monthly.
+1. Time series graphs across one year, binned weekly and monthly.
     - Total Distance
     - Total Duration
     - Avg. Pace
@@ -11,7 +11,8 @@
     - Avg. VO2Max (if available)
     - Avg. Weight (labeled as 'BodyMass')
 1. Total distance run per day across one week.
-1. Calendar heatmap of running across all available years, where x = Months, y = Days, and z = ['Total Distance', 'Avg. Pace'].
+<!--- 1. Calendar heatmap of running across all available years, where x = Months, y = Days, and z = ['Total Distance', 'Avg. Pace'].
+--->
 1. Histograms (number of runs across a year/years) and a line plot of their associated avg. distance per run.
     - Day of the Week
     - Hour of day of run start time
@@ -39,9 +40,10 @@ Related file(s): `extractapplehealth.py`
     ```
     **Optional arguments**:
 
-    - `-o`: Path to export.xml. If input starts with '/', will search for path in current working directory. If no argument passed in, will search for file path `apple_health_export/export.xml` in current working directory.
-    - `--append`: If passed in, the script will search for the latest version of a database (`.db`) file within the `data/` subdirectory of the current working directory. Only data from export.xml with `startDate` attribute >= the export date of the existing database will be extracted and appended to the database. 
+    - `-o` or `--open-file`: Path to export.xml. If input starts with '/', will search for path in current working directory. If no argument passed in, will search for file path `apple_health_export/export.xml` in current working directory.
+    - `-a` or `--append`: If passed in, the script will search for the latest version of a database (`.db`) file within the `data/` subdirectory of the current working directory. Only data from export.xml with `startDate` attribute >= the export date of the existing database will be extracted and appended to the database. 
         - If not passed in, will default to `--no-append` and extract all data from the XML and write to a new database. 
+    - `-v` or `--version`: Appends script version number to the output database file name. (e.g: '`YYYYmmdd`_applehealth_ver`2.5`.db')
 
 ### 2. Prepare datasets for dashboard
 Related file(s): `preparedatasets.py`, which reads relevant running metrics from the database file (the output from step 1) and outputs daily, weekly, and monthly aggregates of those metrics, stored as CSV files.
