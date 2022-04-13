@@ -22,7 +22,8 @@ from settings import (AGG_D_SUFFIX,
                       )
 from pathlib import Path
 from utils import (extract_export_date,
-                   get_unit_from_string)
+                   get_unit_from_string,
+                   colmapper)
 
 
 # --- HELPER FUNCTIONS --- #
@@ -585,7 +586,8 @@ class DatasetPrep(object):
         column_agg_methods = get_daily_agg_method(list(data.columns))
 
         # Aggregate by date_column
-        aggregated_data = data.groupby(data[date_column].dt.date,
+        data['Col_agg'] = data[date_column].copy()
+        aggregated_data = data.groupby(data['Col_agg'].dt.date,
                                        as_index=False).agg(column_agg_methods)
 
         # Rename columns to prefix 'Avg' or 'Total' according to aggregation
@@ -621,7 +623,7 @@ class DatasetPrep(object):
         elif table_name in self.RECORD_TABLES:
             cols_to_drop = 'startDate'
 
-        daily.drop(columns=cols_to_drop, inplace=True)
+        daily = daily.drop(columns=cols_to_drop, inplace=False)
 
         # Load aggregation methods
         agg_methods = get_weekly_agg_method(list(daily.columns))
@@ -651,6 +653,19 @@ class DatasetPrep(object):
             daily = self.daily_aggregates[table_name]
         else:
             daily = self.aggregate_daily(table_name, 'startDate')
+
+        # Drop columns
+        if table_name in self.WORKOUT_TABLES:
+            cols_to_drop = ['startDate']
+            try:
+                indoor_column = colmapper('Indoor Workout', daily.columns)
+                cols_to_drop.append(indoor_column)
+            except ValueError:
+                pass
+        else:
+            cols_to_drop = 'startDate'
+
+        daily = daily.drop(columns=cols_to_drop, inplace=False)
 
         # Load aggregation methods
         agg_methods = get_monthly_agg_method(list(daily.columns))
@@ -819,10 +834,10 @@ class DatasetPrep(object):
             write_to_file (bool): Toggle whether to write resulting DataFrame
                 to a CSV. Default False.
         """
-        if workout_name not in self.daily_aggregates.keys():
-            daily = self.daily_aggregates(workout_name, 'startDate')
-        else:
+        if workout_name in self.daily_aggregates.keys():
             daily = self.daily_aggregates[workout_name]
+        else:
+            daily = self.aggregate_daily(workout_name, 'startDate')
 
         # Set index as the 'Date' column
         resampled = daily.set_index('Date')
