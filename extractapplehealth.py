@@ -47,6 +47,7 @@ from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
 
+# Constants
 CURRENT_TIME = datetime.now().strftime("%Y%m%d_%H%M%S")
 CREATE_SUBTABLES_FOR = ['Record', 'Workout']
 PREFIX_TO_STRIP = dict(zip(CREATE_SUBTABLES_FOR, [['HKQuantityTypeIdentifier',
@@ -56,6 +57,7 @@ TYPE_COL = dict(zip(CREATE_SUBTABLES_FOR, ['type', 'workoutActivityType']))
 VERBOSE = True
 
 
+# Function timer decorator
 def func_timer(func):
     def function_wrapper(*args, **kwargs):
         start = time.time()
