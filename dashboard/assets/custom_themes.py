@@ -27,7 +27,7 @@ custom_theme1 = go.layout.Template(
         },
         'colorway': toggle_colorway,
         'font': {'color': axis_label_color,
-                 'family': 'Helvetica Neue, Helvetica, Arial, Sans-serif',
+                 'family': '-apple-system, system-ui, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
                  },
         'legend': {
             'orientation': 'h',
