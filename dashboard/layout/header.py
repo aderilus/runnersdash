@@ -11,8 +11,8 @@ navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Home", href="/home"),
                     id="home-link",),
-        dbc.NavItem(dbc.NavLink("Detailed view", href="/heatmapview"),
-                    id="heatmapview-link",),
+        # dbc.NavItem(dbc.NavLink("Detailed view", href="/heatmapview"),
+        #             id="heatmapview-link",),
     ],
     brand="Hello! 👋 Here are your running stats from {0} to {1}".format(min_year, max_year),
     brand_href='/',

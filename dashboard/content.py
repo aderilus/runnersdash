@@ -5,7 +5,7 @@ from dash import html, dcc
 # import dash_bootstrap_components as dbc
 
 from dashboard.index import app
-from dashboard.pages import home, heatmapview
+from dashboard.pages import home
 
 from dashboard.layout.callbacks import (nav_callbacks,
                                         timeseries_callbacks,
