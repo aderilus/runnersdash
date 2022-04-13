@@ -129,7 +129,7 @@ def get_weeks_of_month(in_month, in_year):
 
 
 # --- GET DATA --- #
-def get_column_extremas(df, column_name):
+def get_column_extremas(df, column_name, column_name_level1=None):
     """ Returns the mininum and maximum of a column in a given
         DataFrame.
 
@@ -137,10 +137,23 @@ def get_column_extremas(df, column_name):
         df (pd.DataFrame): The dataset to work with.
         column_name (str): The name of the column to get the extrema of.
 
+    Kwargs:
+        column_name_level1 (str or None): If DataFrame has MultiIndex columns,
+            this is the level 1 label.
+
     Returns: A tuple of two values: (min, max).
     """
-    filtered_df = df[df[column_name].notnull()]  # Filter out NaN rows
-    unique_values = filtered_df[column_name].unique()
+    if column_name == 'index':
+        sorted_index = df.index.sort_values()
+        return (sorted_index[0], sorted_index[-1])
+
+    if column_name_level1:  # If DataFrame has MultiIndex columns
+        filtered_df = df[df[column_name][column_name_level1].notnull()]
+        unique_values = filtered_df[column_name][column_name_level1].unique()
+    else:
+        filtered_df = df[df[column_name].notnull()]  # Filter out NaN rows
+        unique_values = filtered_df[column_name].unique()
+
     sorted_values = sort(unique_values)
 
     minimum = sorted_values[0]
@@ -274,5 +287,7 @@ def get_resampled_runs(verbose=False):
                        index_col='Date',
                        parse_dates=True,
                        dtype=dtype_map)
+    data['startDate'] = pd.to_datetime(data['startDate'],
+                                       format="%Y-%m-%d %H:%M:%S%z")
 
     return data
