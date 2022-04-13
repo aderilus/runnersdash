@@ -4,15 +4,14 @@ import plotly.graph_objects as go
 from dashboard.assets.custom_themes import custom_theme1
 
 
-def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
+def simple_time_series(plotly_fig, xcol, ycol, xlabel, ylabel,
                        plot_type='Bar', row_idx=None, col_idx=None,
                        width_px=None, height_px=None, marker_dict=None,
                        lineshape='linear', bar_text_template='%{y.:3s}'):
     """
     Args:
-        dataframe (pd.DataFrame)
-        xcol (str)
-        ycol (str)
+        xcol (pd.Series)
+        ycol (pd.Series)
         xlabel (str)
         ylabel (str)
 
@@ -39,18 +38,18 @@ def simple_time_series(plotly_fig, dataframe, xcol, ycol, xlabel, ylabel,
 
     if plot_type.lower() == 'bar':
         graph_obj = go.Bar(
-            x=dataframe[xcol],
-            y=dataframe[ycol],
-            name=ycol.split('(')[0],
+            x=xcol,
+            y=ycol,
+            name=ylabel,
             texttemplate=bar_text_template,
             marker=marker_dict,
         )
 
     elif plot_type.lower() == 'scatter':
         graph_obj = go.Scatter(
-            x=dataframe[xcol],
-            y=dataframe[ycol],
-            name=ycol.split('(')[0],
+            x=xcol,
+            y=ycol,
+            name=ylabel,
             line_shape=lineshape,
             mode='lines+markers',
             cliponaxis=True,

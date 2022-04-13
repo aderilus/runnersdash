@@ -13,7 +13,10 @@ from collections import OrderedDict
 from utils import (get_latest_weekly_agg,
                    get_latest_monthly_agg,
                    format_pace,
-                   COLMAPPER)
+                   colmapper)
+
+weekly_data = get_latest_weekly_agg()
+monthly_data = get_latest_monthly_agg()
 
 
 def get_stat_over(time_period, metric, on_date):
@@ -31,14 +34,14 @@ def get_stat_over(time_period, metric, on_date):
         If metric = None, returns a Series.
     """
     if time_period == 'week':
-        data = get_latest_weekly_agg()
-        dfiltered = data[data[time_period.capitalize()] == on_date]
+        data = weekly_data
+        dfiltered = data[data.index == on_date]
     elif time_period in ['year', 'month']:
-        data = get_latest_monthly_agg()
-        dfiltered = data[data['Year'] == on_date.year]
+        data = monthly_data
+        dfiltered = data[data.index.year == on_date.year]
 
         if time_period == 'month':
-            dfiltered = dfiltered[dfiltered['Month'] == on_date.month]
+            dfiltered = dfiltered[dfiltered.index.month == on_date.month]
     else:
         raise ValueError("'time_period' parameter only takes in ['week', 'month', 'year']")
 
@@ -57,29 +60,36 @@ def get_list_of_stats(time_period_type, selected_time):
 
     data_on_date = get_stat_over(time_period_type, metric=None,
                                  on_date=selected_time)
+    column_list = data_on_date.index.tolist()
     stats = OrderedDict()
     # This is the same order as the Output list
-    data_to_get = ['distance', 'duration', 'avg pace',
-                   'avg distance', 'avg vo2', 'avg rhr']
+    data_to_get = [('Total Distance', 'sum'),
+                   ('Total Duration', 'sum'),
+                   ('Avg Pace', 'mean'),
+                   ('Total Distance', 'mean'),
+                   ('Avg VO2', 'mean'),
+                   ('Avg Resting Heart Rate', 'mean'),
+                   ]
 
-    for d in data_to_get:
+    for i, j in data_to_get:
         try:
-            stat = data_on_date[COLMAPPER[d]]
+            key = i + '_' + j
+            col_name_level0 = colmapper(i, column_list)
+            stat = data_on_date[col_name_level0][j]
 
-            if d == "avg pace":
+            if i == "Avg Pace":
                 if stat:
                     pacemin, pacesec = format_pace(stat)
                 else:
                     pacemin, pacesec = (None, None)
                 stat_msg = '{:0>2d}\'{:0>2.0f}\"'.format(pacemin, pacesec)
-            elif d == "avg rhr":
+            elif i == "Avg Resting Heart Rate":
                 stat_msg = '{:.0f}'.format(stat)
             else:
                 stat_msg = '{:.2f}'.format(stat)
-
-            stats[d] = stat_msg
+            stats[key] = stat_msg
         except TypeError:  # If type(data_on_date) is NoneType
-            stats[d] = "No data"
+            stats[key] = "No data"
 
     return list(stats.values())
 
@@ -89,17 +99,18 @@ week_stats_title = html.H6(["Select week on the plot"],
                            id="week-stats-title",
                            style={"padding-bottom": "0.25rem"})
 
+weekly_cols = weekly_data.columns.tolist()
 week_stats_cardgroup = dbc.CardGroup(
     [
         dbc.Card(
             [
                 dbc.CardBody([
-                    html.P(COLMAPPER['distance']),
+                    html.P(colmapper('Total Distance', weekly_cols)),
                     html.H4(children=[], id="week-stat-distance")
                 ],
                 ),
                 dbc.CardFooter([
-                    html.P(COLMAPPER['avg distance']),
+                    html.P("Avg Distance"),
                     html.H4(children=[], id="week-stat-avgdistance")
                 ],
                 )
@@ -109,12 +120,12 @@ week_stats_cardgroup = dbc.CardGroup(
         dbc.Card(
             [
                 dbc.CardBody([
-                    html.P(COLMAPPER['duration']),
+                    html.P(colmapper('Total Duration', weekly_cols)),
                     html.H4(children=[], id="week-stat-duration")
                 ],
                 ),
                 dbc.CardFooter([
-                    html.P(COLMAPPER['avg vo2']),
+                    html.P(colmapper('Avg VO2', weekly_cols)),
                     html.H4(children=[], id="week-stat-avgvo2")
                 ],
                 )
@@ -124,12 +135,12 @@ week_stats_cardgroup = dbc.CardGroup(
         dbc.Card(
             [
                 dbc.CardBody([
-                    html.P(COLMAPPER['avg pace']),
+                    html.P(colmapper('Avg Pace', weekly_cols)),
                     html.H4(children=[], id="week-stat-avgpace")
                 ],
                 ),
                 dbc.CardFooter([
-                    html.P(COLMAPPER['avg rhr']),
+                    html.P(colmapper('Avg Resting Heart Rate', weekly_cols)),
                     html.H4(children=[], id="week-stat-avgrhr")
                 ],
                 )
@@ -152,17 +163,18 @@ month_stats_title = html.H6(["Select month on the plot"],
                             style={"padding-bottom": "0.25rem",
                                    "padding-top": "1rem"})
 
+monthly_cols = monthly_data.columns.tolist()
 month_stats_cardgroup = dbc.CardGroup(
     [
         dbc.Card(
             [
                 dbc.CardBody([
-                    html.P(COLMAPPER['distance']),
+                    html.P(colmapper('Total Distance', monthly_cols)),
                     html.H4(children=[], id="month-stat-distance")
                 ],
                 ),
                 dbc.CardFooter([
-                    html.P(COLMAPPER['avg distance']),
+                    html.P("Avg Distance"),
                     html.H4(children=[], id="month-stat-avgdistance")
                 ],
                 )
@@ -172,12 +184,12 @@ month_stats_cardgroup = dbc.CardGroup(
         dbc.Card(
             [
                 dbc.CardBody([
-                    html.P(COLMAPPER['duration']),
+                    html.P(colmapper('Total Duration', monthly_cols)),
                     html.H4(children=[], id="month-stat-duration")
                 ],
                 ),
                 dbc.CardFooter([
-                    html.P(COLMAPPER['avg vo2']),
+                    html.P(colmapper('Avg VO2', monthly_cols)),
                     html.H4(children=[], id="month-stat-avgvo2")
                 ],
                 )
@@ -187,12 +199,12 @@ month_stats_cardgroup = dbc.CardGroup(
         dbc.Card(
             [
                 dbc.CardBody([
-                    html.P(COLMAPPER['avg pace']),
+                    html.P(colmapper('Avg Pace', monthly_cols)),
                     html.H4(children=[], id="month-stat-avgpace")
                 ],
                 ),
                 dbc.CardFooter([
-                    html.P(COLMAPPER['avg rhr']),
+                    html.P(colmapper('Avg Resting Heart Rate', monthly_cols)),
                     html.H4(children=[], id="month-stat-avgrhr")
                 ],
                 )

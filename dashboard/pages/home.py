@@ -1,16 +1,17 @@
-""" Home page layout component definitions.
+""" Home page component configurations.
 """
 
-from calendar import month
 import dash_bootstrap_components as dbc
 from dash import html, dcc
-from utils import COLMAPPER
 from dashboard.layout.header import navbar, min_year, max_year
-from dashboard.layout.timeseriesgraphs import (highresweeklyplots,
-                                               )
+from dashboard.layout.timeseriesplots import (highresweeklyplots,
+                                              y1_picker,
+                                              y2_picker,
+                                              y3_picker,
+                                              )
 from dashboard.layout.statscard import (week_stats_container,
                                         month_stats_container,)
-from dashboard.layout.timeseries_subplots import week_ts_subplot
+from dashboard.layout.timeseriessubplots import week_ts_subplot
 from dashboard.layout.runninghabits import running_habit_plots
 
 
@@ -53,59 +54,23 @@ year_slider_vert = dcc.Slider(
 #     label_class_name="body",
 # )
 
-y1_options = [COLMAPPER['distance'], COLMAPPER['duration'], COLMAPPER['menstrual flow']]
-y1_picker = dcc.Dropdown(
-    options=[
-        {"label": i.split('(')[0], "value": i} for i in y1_options
-    ],
-    value=y1_options[0],
-    placeholder="Choose y-axis 1",
-    clearable=False,
-    id='time-series-y1',
-)
-
-combined_metrics = [COLMAPPER['avg pace'],
-                    COLMAPPER['avg rhr'],
-                    COLMAPPER['avg vo2'],
-                    COLMAPPER['weight'],
-                    ]
-
-y2_options = combined_metrics
-y2_picker = dcc.Dropdown(
-    options=[
-        {"label": i.split('(')[0], "value": i} for i in y2_options
-    ],
-    value=y2_options[0],
-    placeholder="Choose y-axis 2",
-    id='time-series-y2',
-    clearable=False,
-)
-
-y3_options = combined_metrics[1:]
-y3_picker = dcc.Dropdown(
-    options=[
-        {"label": i.split('(')[0], "value": i} for i in y3_options
-    ],
-    value=y3_options[0],
-    placeholder="Choose y-axis 3",
-    id='time-series-y3',
-    clearable=False,
-)
-
 # --- GRAPH OPTIONS CONTAINER --- #
 y_options_container = html.Div(
     [
         html.Div([y1_picker],
-                 style={"display": "inline-block", "width": "36%",
-                        "float": "left", "padding": "0.25rem"}
+                 style={'padding': '0.25rem'},
+                 #  style={"display": "inline-block", "width": "36%",
+                 #         "float": "left", "padding": "0.25rem"}
                  ),
         html.Div([y2_picker],
-                 style={"display": "inline-block", "width": "26.5%",
-                        "float": "center", "padding": "0.25rem"},
+                 style={'padding': '0.25rem'},
+                 #  style={"display": "inline-block", "width": "26.5%",
+                 #         "float": "center", "padding": "0.25rem"},
                  ),
         html.Div([y3_picker],
-                 style={"display": "inline-block", "width": "37.5%",
-                        "float": "right", "padding": "0.25rem"},
+                 style={'padding': '0.25rem'},
+                 #  style={"display": "inline-block", "width": "37.5%",
+                 #         "float": "right", "padding": "0.25rem"},
                  ),
     ],
 )
@@ -119,7 +84,7 @@ time_bin_type = dbc.Switch(
 
 daily_overlay_switch = dbc.Switch(
     id="daily-data-overlay",
-    label="Overlay scatter plot of individual run data",
+    label="Overlay scatter plot of daily metrics",
     value=False,
     label_class_name="body",
 )

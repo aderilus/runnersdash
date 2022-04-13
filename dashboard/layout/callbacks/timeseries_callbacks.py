@@ -3,10 +3,10 @@ from plotly.io import write_image
 from dashboard.index import app
 from pathlib import Path
 from datetime import datetime
-from dashboard.layout.timeseriesgraphs import (build_weekly_binned_across_year,
-                                               build_monthly_binned_across_year
-                                               )
-from dashboard.layout.timeseries_subplots import build_week_ts_subplot
+from utils import colmapper
+from dashboard.layout.timeseriesplots import (build_agg_binned_across_year,
+                                              )
+from dashboard.layout.timeseriessubplots import build_week_ts_subplot
 
 
 @app.callback(
@@ -43,10 +43,16 @@ def update_main_time_series_title(in_year, monthly_toggled):
 )
 def update_weekly_time_series(in_year, y1, y2, y3, monthly_toggled,
                               daily_overlay):
-    if monthly_toggled:
-        fig = build_monthly_binned_across_year(in_year, y1, y2, y3, daily_overlay)
-    else:
-        fig = build_weekly_binned_across_year(in_year, y1, y2, y3, daily_overlay)
+    y_splits = [y.split('_') for y in [y1, y2, y3]]
+    y_cols = [(i, j) if j != ' ' else (i, None) for i, j in y_splits]
+
+    bin_type = 'm' if monthly_toggled else 'w'
+    fig = build_agg_binned_across_year(in_year, freq=bin_type,
+                                       ycol=y_cols[0][0], ycol_sub=y_cols[0][1],
+                                       y2col=y_cols[1][0], y2col_sub=y_cols[1][1],
+                                       y3col=y_cols[2][0], y3col_sub=y_cols[2][1],
+                                       show_daily_scatter=daily_overlay
+                                       )
     return fig
 
 
@@ -98,6 +104,6 @@ def update_week_ts_subplot(click_data):
         # type(click_data_dump) is str
         selected_date = clicked_data_dump['x']
 
-    fig = build_week_ts_subplot(selected_date, ycol="Total Distance (km)")
+    fig = build_week_ts_subplot(selected_date, ycol_pattern='Total Distance')
 
     return fig

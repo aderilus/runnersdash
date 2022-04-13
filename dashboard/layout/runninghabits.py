@@ -2,13 +2,16 @@
 dashboard.
 """
 
-from unicodedata import category
+from socket import AI_V4MAPPED_CFG
 from dash import dcc
 from pandas import Timestamp
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from utils import get_column_extremas, get_resampled_runs, COLMAPPER, DAY_MAP, get_unit_from_string
 from dashboard.assets.custom_themes import custom_theme1, toggle_colorway
+from utils import (get_column_extremas,
+                   get_resampled_runs,
+                   colmapper,
+                   get_unit_from_string)
 
 
 running_habit_plots = dcc.Graph(id="running-habits-plots")
@@ -27,19 +30,24 @@ def build_habit_plots(input_year):
 
     # Load data
     data = get_resampled_runs()
-    ran = COLMAPPER['distance']
-    data = data[(data[ran].notna()) | (data[ran] > 0)]
 
-    date_col = 'Date'
-    dfiltered = data[data[date_col].dt.year == input_year].copy() if type(input_year) == int else data.copy()
+    # Filter rows
+    total_dist = colmapper('Total Distance', data.columns)
+    data = data[(data[total_dist].notna()) | (data[total_dist] > 0)]
 
-    fig = make_subplots(rows=2, cols=3, vertical_spacing=v_space,
+    # date_col = 'Date'
+    dfiltered = data[data.index.year == input_year].copy() if type(input_year) == int else data.copy()
+
+    fig = make_subplots(rows=2, cols=3,
+                        vertical_spacing=v_space,
                         horizontal_spacing=h_space,
                         column_widths=[0.2, 0.4, 0.2],
                         )
 
     # Day of Week (x1, y1)
     dows_ordered = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    dfiltered['DOW numeric'] = dfiltered.index.dayofweek
+    dfiltered['Day of Week'] = dfiltered['DOW numeric'].map(dict(zip(range(7), dows_ordered)))
     fig.add_trace(
         go.Histogram(
             x=dfiltered['Day of Week'],
@@ -50,7 +58,7 @@ def build_habit_plots(input_year):
     )
 
     # Time of Day Histogram (x2, y2)
-    dfiltered.loc[:, 'runStartHour'] = dfiltered['runStartTime'].dt.hour
+    dfiltered.loc[:, 'runStartHour'] = dfiltered['startDate'].dt.hour
 
     fig.add_trace(
         go.Histogram(
@@ -65,11 +73,11 @@ def build_habit_plots(input_year):
 
     # Distance per run histogram (x3, y3)
     dist_bin_start = 0
-    dist_bin_end = max(50, get_column_extremas(dfiltered, ran)[1])
+    dist_bin_end = max(50, get_column_extremas(dfiltered, total_dist)[1])
     dist_bin_delta = 2.5
     fig.add_trace(
         go.Histogram(
-            x=dfiltered[ran],
+            x=dfiltered[total_dist],
             xbins=dict(start=dist_bin_start, end=dist_bin_end, size=dist_bin_delta),
             name="Avg. distance per run",
             xaxis="x3",
@@ -78,17 +86,15 @@ def build_habit_plots(input_year):
     )
 
     # Distance per run for each day of the week (x4, y4)
-    dfiltered.loc[:, 'DOW numeric'] = dfiltered.loc[:, 'Date'].copy().dt.day_of_week
-    avgdistperdow = dfiltered[['DOW numeric', ran]].copy().groupby(['DOW numeric']).mean()
-    avgdistperdow.loc[:, 'Day of Week'] = avgdistperdow.index.map(dict(zip(range(7), dows_ordered)))
-
+    avgdistperdow = dfiltered[['DOW numeric', total_dist]].copy().groupby(['DOW numeric']).mean()
+    avgdistperdow['Day of Week'] = avgdistperdow.index.map(dict(zip(range(7), dows_ordered)))
     fig.add_trace(
         go.Scatter(
             x=avgdistperdow['Day of Week'],
-            y=avgdistperdow[ran],
+            y=avgdistperdow[total_dist],
             xaxis="x4",
             yaxis="y4",
-            name=f"Avg. Distance ({get_unit_from_string(ran)}) per run",
+            name=f"Avg. Distance ({get_unit_from_string(total_dist)}) per run",
             mode='lines+markers',
             line_shape='spline',
         ),
@@ -96,15 +102,15 @@ def build_habit_plots(input_year):
     )
 
     # Distance run per time of day (x5, y5)
-    avgdistperhour = dfiltered[['runStartHour', ran]].copy().groupby(['runStartHour']).mean()
+    avgdistperhour = dfiltered[['runStartHour', total_dist]].copy().groupby(['runStartHour']).mean()
 
     fig.add_trace(
         go.Scatter(
             x=avgdistperhour.index,
-            y=avgdistperhour[ran],
+            y=avgdistperhour[total_dist],
             xaxis="x5",
             yaxis="y5",
-            name=f"Avg. Distance ({get_unit_from_string(ran)}) per run",
+            name=f"Avg. Distance ({get_unit_from_string(total_dist)}) per run",
             mode='lines+markers',
             line_shape='spline',
         ),
@@ -137,7 +143,7 @@ def build_habit_plots(input_year):
         xaxis=x1_axis_settings,  # Day of week histogram
         xaxis2=x2_axis_settings,  # Time of day histogram
         xaxis3=dict(
-            title_text=f"{COLMAPPER['avg distance']} per run",
+            title_text=f"Avg Distance ({get_unit_from_string(total_dist)}) per run",
             tickmode='array',
             tickvals=[i + (dist_bin_delta / 2) for i in dist_bin_ticks],
             ticktext=[f"[{i}, {i + dist_bin_delta - 0.01}]" for i in dist_bin_ticks],
@@ -151,7 +157,7 @@ def build_habit_plots(input_year):
             title_text="# of runs",
         ),
         yaxis4=dict(
-            title_text=f"Avg. distance ({get_unit_from_string(ran)}) per run"
+            title_text=f"Avg. distance ({get_unit_from_string(total_dist)}) per run"
         ),
         bargap=0.03,
     )
