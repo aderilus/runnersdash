@@ -5,7 +5,8 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         1. "[date]_dailyAggregate.csv"
                         2. "[date]_weeklyAggregate.csv"
                         3. "[date]_monthlyAggregate.csv"
-                        4. "[date]_running_resampledDaily.csv"
+                        4. "[date]_Running_resampledDaily.csv"
+                        5. "[date]_Running.csv"
 """
 
 __version__ = '1.5'
@@ -288,9 +289,10 @@ class DatasetPrep(object):
         Args:
             dataframe (pd.DataFrame): The DataFrame to write to file.
             file_type (str): Signifies the frequency of the dataset. Takes in
-                any of the following: ['d-agg', 'w-agg', 'm-agg', 'd-resample'],
-                representing daily, weekly, monthly aggregates, and daily
-                resampled data respectively.
+                any of the following: 
+                    ['d-agg', 'w-agg', 'm-agg', 'd-resample', 'as-is'],
+                representing daily, weekly, monthly aggregates, daily resampled
+                data, and the original, unaggregated dataset respectively.
 
         Kwargs:
             tablename (str or None): Table name to prepend to the file suffix.
@@ -303,6 +305,7 @@ class DatasetPrep(object):
                            'w-agg': AGG_W_SUFFIX,
                            'm-agg': AGG_M_SUFFIX,
                            'd-resample': RESAMPLE_D_SUFFIX,
+                           'as-is': '',
                            }
 
         if file_type not in list(file_suffix_map.keys()):
@@ -311,7 +314,9 @@ class DatasetPrep(object):
 
         file_prefix = f"{PD_OUTPUT_PATH}/{self.DB_EXPORT_DATE}_"
         if tablename:
-            file_prefix = file_prefix + f'{tablename}_'
+            file_prefix = file_prefix + f'{tablename}'
+            if file_type != 'as-is':
+                file_prefix = file_prefix + '_'
         file_suffix = file_suffix_map[file_type]
         file_name = f"{file_prefix}{file_suffix}.csv"
         dataframe.to_csv(file_name)
@@ -475,7 +480,7 @@ class DatasetPrep(object):
 
         return df
 
-    def load_table(self, table_name):
+    def load_table(self, table_name, write_to_file=False):
         """ Returns a DataFrame of the formatted table from the database given
         its table name.
         """
@@ -489,6 +494,10 @@ class DatasetPrep(object):
             table = self.format_workout_table(table_name, df)
         else:
             raise ValueError(f"No support for loading {table_name}.")
+
+        if write_to_file:
+            self.write_to_csv(table, file_type='as-is', tablename=table_name,
+                              verbose=self.verbose)
 
         return table
 
@@ -909,3 +918,6 @@ if __name__ == '__main__':
 
     # Daily resampled runs
     resampled_runs = data.get_resampled_workout('Running', write_to_file=True)
+
+    # All runs
+    all_runs = data.load_table('Running', write_to_file=True)
