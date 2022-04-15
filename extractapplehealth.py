@@ -3,11 +3,16 @@
                            into a database.
 
 Usage:
-    $ python extractapplehealth.py OPTIONAL[-o path/to/export.xml  --append]
+    $ python extractapplehealth.py OPTIONAL[-o path/to/export.xml --append --version]
 
-    If --append is passed in, script will find the latest version of a db file
-    within the 'data/' subdirectory and append to the database any data with
-    'startDate' >= latest export date of the db file. Default is --no-append.
+    If --append (bool) is passed in, script will find the latest version of a
+    db file within the 'data/' subdirectory and append to the database any data
+    with 'startDate' >= latest export date of the .db file.
+    Default is --no-append.
+
+    If --version (bool) is passed in, the version number of this script is
+    appended to the name of the resulting database .db file.
+    Default is --no-version.
 
 Output(s):
     1. A database (.db) file under subdirectory `data/` containing
