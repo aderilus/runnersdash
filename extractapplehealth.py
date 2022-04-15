@@ -28,7 +28,7 @@ Output(s):
         "db_{exportdate}_run{script run date in %Y%m%d}_{%H%M%S}.log"
 
 Things to note:
-- Last tested on Mar. 2022 Apple Health data.
+- Last tested on Apr. 2022 Apple Health data.
 - This version does not extract elements with tag = "Correlation", "Audiogram",
   or "ClinicalRecord".
 - ver 2.5
