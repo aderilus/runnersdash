@@ -7,6 +7,31 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         3. "[date]_monthlyAggregate.csv"
                         4. "[date]_Running_resampledDaily.csv"
                         5. "[date]_Running.csv"
+
+USAGE:
+    $ python preparedatasets.py -o path/to/db/file OPTIONAL[-w -r]
+
+    OPTIONAL ARGUMENTS:
+    -w or --workouts: List (space-separated) of table names (as it appears)
+        in the database file of type Workout to process.
+        Default: Running
+
+        Example Workout tables:
+            - Running                           - Other
+            - Barre                             - Skiing
+            - FunctionalStrengthTraining        - Walking
+
+    -r or --records: List (space-separated) of table names of type
+        Record to process.
+        Default: MenstrualFlow RestingHeartRate VO2Max BodyMass
+                 HeartRateVariabilitySDNN HeartRate StepCount'
+                 RespiratoryRate' BloodPressureDiastolic
+                 BloodPressureSystolic
+
+        Example Record tables:
+            - HeartRateVariabilitySDNN
+            - VO2Max
+            - StepCount
 """
 
 __version__ = '1.5'
@@ -289,7 +314,7 @@ class DatasetPrep(object):
         Args:
             dataframe (pd.DataFrame): The DataFrame to write to file.
             file_type (str): Signifies the frequency of the dataset. Takes in
-                any of the following: 
+                any of the following:
                     ['d-agg', 'w-agg', 'm-agg', 'd-resample', 'as-is'],
                 representing daily, weekly, monthly aggregates, daily resampled
                 data, and the original, unaggregated dataset respectively.
