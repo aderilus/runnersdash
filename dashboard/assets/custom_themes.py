@@ -63,7 +63,7 @@ custom_theme1 = go.layout.Template(
             'zerolinecolor': zeroline_color,
             'zerolinewidth': 1,
             'ticks': '',
-            'title': {'font': {'size': 12},
+            'title': {'font': {'size': 13},
                       'standoff': 5},
         }
     }
