@@ -2,11 +2,16 @@
 """
 from dash.dependencies import Input, Output
 from dashboard.index import app
-from dashboard.layout.runninghabits import build_habit_plots
+from dashboard.layout.runninghabits import (build_dow_histogram,
+                                            build_tod_histogram,
+                                            build_runmetric_histogram,
+                                            )
 
 
 @app.callback(
-    [Output("running-habits-plots", "figure"),
+    [Output("running-habits-dow", "figure"),
+     Output("running-habits-tod", "figure"),
+     Output("running-habits-rundist", "figure"),
      Output("running-habits-title", "children")],
     [Input("year-slider-vertical", "value")]
 )
@@ -19,6 +24,9 @@ def update_running_habits(input_year):
         yr = input_year
         container_title = f"Your running habits across {yr}"
 
-    fig = build_habit_plots(yr)
+    outputs = (build_dow_histogram(yr),
+               build_tod_histogram(yr),
+               build_runmetric_histogram(yr),
+               container_title)
 
-    return fig, container_title
+    return outputs
