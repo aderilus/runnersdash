@@ -12,7 +12,11 @@ from dashboard.layout.timeseriesplots import (highresweeklyplots,
 from dashboard.layout.statscard import (week_stats_container,
                                         month_stats_container,)
 from dashboard.layout.timeseriessubplots import week_ts_subplot
-from dashboard.layout.runninghabits import running_habit_plots
+from dashboard.layout.runninghabits import (rh_dow, rh_tod,
+                                            rh_title,
+                                            rh_run_distance)
+from dashboard.layout.environmentalfactors import (weather_factors_y,
+                                                   weather_factors_plot)
 
 
 # --- CONSTANTS --- #
@@ -166,19 +170,6 @@ main_timeseries_card = dbc.Card(
     ],
 )
 
-
-habits_card = dbc.Card(
-    children=[
-        dbc.CardHeader(html.H6("",
-                               id="running-habits-title")),
-        dbc.CardBody(
-            [
-                running_habit_plots,
-            ],
-        ),
-    ]
-)
-
 week_subplot_container = html.Div(
     [week_ts_subplot],
     style={"padding": "0.25rem", "padding-top": "1rem"}
@@ -188,6 +179,40 @@ month_subplot_container = html.Div(
     [],
     style={"padding": "0.25rem", "padding-top": "0.75rem"}
 )
+
+
+rh_dow_card = dbc.Card(
+    children=[
+        # dbc.CardHeader(html.H6("",
+        #                        id="running-habits-title")),
+        dbc.CardBody(
+            [
+                rh_dow,
+            ],
+        ),
+    ]
+)
+
+rh_tod_card = dbc.Card(
+    children=[
+        # dbc.CardHeader(html.H6("",
+        #                        id="running-habits-title")),
+        dbc.CardBody(
+            [
+                rh_tod,
+            ],
+        ),
+    ]
+)
+
+rh_dist_card = dbc.Card(
+    children=[
+        dbc.CardBody(
+            [rh_run_distance]
+        ),
+    ]
+)
+
 
 # --- COLUMNS --- #
 # Row 1, left col
@@ -210,22 +235,74 @@ module_b = dbc.Col(
 )
 
 # Row 2, left col
-module_c = dbc.Col(
+row2_left = dbc.Col(
     children=[
         html.Div(
             [year_slider_vert],
-            style={"padding": "0.25rem"},
+            style={"padding": "0.25rem",
+                   "position": 'sticky',
+                   },
+            className="sticky-top",
         )
     ],
     width={"size": 1},
 )
 
-# Row 2, right col
+# Row 2, middle col
 module_d = dbc.Col(
     children=[
-        habits_card,
+        rh_dow_card,
     ],
-    width={"size": 11},
+    width={"size": 5},
+)
+
+# Row 2, right col
+module_e = dbc.Col(
+    children=[
+        rh_tod_card
+    ],
+    width={"size": 7}
+)
+
+# Row 2, right col
+module_f = dbc.Col(
+    children=[
+        rh_dist_card
+    ],
+)
+
+row2_right = dbc.Col(
+    children=[
+        dbc.Row(
+            children=[
+                module_d,
+                module_e
+            ],
+            style={"margin-bottom": '1.5rem'},
+        ),
+        dbc.Row(
+            children=[
+                module_f
+            ]
+        ),
+    ],
+    width={"size": 11}
+)
+
+row3_col = dbc.Col(
+    children=[
+        dbc.Card(
+            children=[
+                dbc.CardBody(
+                    children=[
+                        weather_factors_y,
+                        weather_factors_plot,
+                    ],
+                )
+            ],
+        )
+    ],
+    width={"size": 8, "offset": 2},
 )
 
 # --- ROWS --- #
@@ -242,17 +319,21 @@ row1 = dbc.Row(
 # Row 2
 row2 = dbc.Row(
     children=[
-        module_c,
-        module_d,
+        rh_title,
+        row2_left,
+        row2_right,
     ],
     class_name="gy-6",
 )
 
-# Row 3 = Trends
+# Row 3 = Environmental Factors
 row3 = dbc.Row(
     children=[
+        html.H5("Environmental Factors"),
+        row3_col
     ],
-    style={"background": "#eee"},
+    class_name="gy-6",
+    style={"padding-top": "1.5rem"}
 )
 
 

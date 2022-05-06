@@ -17,6 +17,8 @@
     - Day of the Week
     - Hour of day of run start time
     - Total run distance
+    - Daily total distance, duration, avg METs
+1. Various running metrics against temperature and humidity
 
 ## What it does
 1. Extracts health data from exported Apple Health (XML) raw data and stores them on a local database.
@@ -43,7 +45,7 @@ Related file(s): `extractapplehealth.py`
     - `-o` or `--open-file`: Path to export.xml. If input starts with '/', will search for path in current working directory. If no argument passed in, will search for file path `apple_health_export/export.xml` in current working directory.
     - `-a` or `--append`: If passed in, the script will search for the latest version of a database (`.db`) file within the `data/` subdirectory of the current working directory. Only data from export.xml with `startDate` attribute >= the export date of the existing database will be extracted and appended to the database. 
         - If not passed in, will default to `--no-append` and extract all data from the XML and write to a new database. 
-    - `-v` or `--version`: Appends script version number to the output database file name. (e.g: '`{export_date}`_applehealth_ver`2.5`.db')
+    - `-v` or `--version`: Appends script version number to the output database file name. (e.g: '{export_date}_applehealth_ver`2.5`.db')
 
 ### 2. Prepare datasets for dashboard
 Related file(s): `preparedatasets.py`, which reads relevant running metrics from the database file (the output from step 1) and outputs daily, weekly, and monthly aggregates of those metrics, stored as CSV files.
