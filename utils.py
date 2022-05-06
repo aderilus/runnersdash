@@ -200,17 +200,21 @@ def get_csv_file_path(file_type, verbose=False):
     Args:
         file_type (str): Specifies which CSV file to return. Takes in
                          specific strings: ['dailyagg', 'weeklyagg',
-                         'monthlyagg', 'running-resampled'].
+                         'monthlyagg', 'running-resampled', 'running-log'].
     Kwargs:
         verbose (bool): If True, will print the file path.
 
     Returns:
         Path to file as a pathlib.PosixPath object.
     """
-    if file_type not in ['dailyagg', 'weeklyagg', 'monthlyagg',
-                         'running-resampled']:
-        raise ValueError("Must pass in one of the following as parameter: \
-            ['dailyagg', 'weeklyagg', 'monthlyagg', 'running-resampled']")
+    valid_types = ['dailyagg',
+                   'weeklyagg',
+                   'monthlyagg',
+                   'running-resampled',
+                   'running-log'
+                   ]
+    if file_type not in valid_types:
+        raise ValueError(f"Must pass in one of the following as parameter: {valid_types}")
 
     export_date = get_latest_exportdate()
     file_suffix = settings.AGG_D_SUFFIX
@@ -221,6 +225,8 @@ def get_csv_file_path(file_type, verbose=False):
         file_suffix = settings.AGG_M_SUFFIX
     elif file_type == 'running-resampled':
         file_suffix = f'Running_{settings.RESAMPLE_D_SUFFIX}'
+    elif file_type == 'running-log':
+        file_suffix = 'Running'
 
     file_name = "{0}_{1}.csv".format(export_date, file_suffix)
     file_path = get_project_root().joinpath(settings.PD_OUTPUT_SUBDIR, file_name)
@@ -290,4 +296,18 @@ def get_resampled_runs(verbose=False):
     data['startDate'] = pd.to_datetime(data['startDate'],
                                        format="%Y-%m-%d %H:%M:%S%z")
 
+    return data
+
+
+def get_running_logs(verbose=False):
+    """ Returns the latest version of Running-type workouts as a DataFrame.
+    """
+    dtype_map = {'sourceName': str}
+    data_path = get_csv_file_path('running-log', verbose)
+    data = pd.read_csv(data_path,
+                       index_col=0,
+                       parse_dates=['startDate', 'endDate'],
+                       dtype=dtype_map)
+    data['startDate'] = pd.to_datetime(data['startDate'],
+                                       format="%Y-%m-%d %H:%M:%S%z")
     return data
