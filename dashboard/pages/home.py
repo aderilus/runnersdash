@@ -329,7 +329,7 @@ row2 = dbc.Row(
 # Row 3 = Environmental Factors
 row3 = dbc.Row(
     children=[
-        html.H5("Environmental Factors"),
+        html.H5("Environmental Factors (outdoor runs)"),
         row3_col
     ],
     class_name="gy-6",
