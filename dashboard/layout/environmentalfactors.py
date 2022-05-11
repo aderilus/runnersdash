@@ -156,7 +156,7 @@ def build_weather_factors_plot(y):
     x2_ticktext[0] = f"[{hbins[0]},<br>{hbins[0] + h_delta})"
     fig.update_layout(
         template=custom_theme1,
-        height=800,
+        height=750,
         xaxis=dict(
             title_text=f'Avg. temp interval ({temp_unit}), ΔT = {t_delta}',
             tickmode='array',
