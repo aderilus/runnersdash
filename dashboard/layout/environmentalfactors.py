@@ -16,17 +16,19 @@ data = get_latest_daily_agg()
 
 # Get column names
 indoor_workout = colmapper('Indoor Workout', data.columns)
-avg_mets = colmapper('Avg MET', data.columns)
 avg_temp = colmapper('Temperature', data.columns)
 avg_humid = colmapper('Humidity', data.columns)
+avg_mets = colmapper('Avg MET', data.columns)
 avg_pace = colmapper('Avg Pace', data.columns)
 tot_dist = colmapper('Total Distance', data.columns)
 tot_dur = colmapper('Total Duration', data.columns)
 elev_gain = colmapper('Elevation Ascended', data.columns)
 vo2 = colmapper('VO2', data.columns)
+hrvar = colmapper('Heart Rate Variability', data.columns)
+resrate = colmapper('Respiratory Rate', data.columns)
 
 # dcc Components
-y_options = [avg_pace, avg_mets, vo2, tot_dist, tot_dur, elev_gain]
+y_options = [avg_pace, avg_mets, vo2, hrvar, resrate, tot_dist, tot_dur, elev_gain]
 weather_factors_y = dcc.Dropdown(
     options=[
         {"label": i, "value": i} for i in y_options

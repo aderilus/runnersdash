@@ -24,7 +24,9 @@ highresweeklyplots = dcc.Graph(id="weekly-time-series")
 cols = daily_data.columns.tolist()
 y1_tuple = [('Total Distance', 'sum'),
             ('Total Duration', 'sum'),
-            ('Menstrual Flow', ' ')
+            ('Total Energy Burned', 'mean'),
+            ('Elevation Ascended', 'mean'),
+            ('Menstrual Flow', ' '),
             ]
 
 y1_options = [f"{utils.colmapper(i, cols)}_{j}" for i, j in y1_tuple]
@@ -40,9 +42,14 @@ y1_picker = dcc.Dropdown(
 )
 
 combined_metrics = ['Avg Pace',
-                    'Avg Resting Heart Rate',
                     'Avg VO2 Max',
-                    'Avg Body Mass'
+                    'Avg METs',
+                    'Avg Resting Heart Rate',
+                    'Avg Heart Rate Variability',
+                    'Avg Respiratory Rate',
+                    'Avg Body Mass',
+                    'Avg Blood Pressure Diastolic',
+                    'Avg Blood Pressure Systolic',
                     ]
 agg_type = 'mean'
 
