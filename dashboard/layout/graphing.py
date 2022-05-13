@@ -6,9 +6,12 @@ from dashboard.assets.custom_themes import custom_theme1
 
 def add_error_bands(plot_fig, error_type, xcol, ycol, r, c,
                     linetype, show_on_legend=False):
-    """
+    """ Adds additional trace to input plotly figure containing error
+    bands determined by standard deviation (error_type='std') or by the
+    min/max of the dataset (error_type='min' or 'max').
+
     Args:
-        plot_fig (plotly.graph_objects): Plotly figure object.
+        plot_fig (plotly.graph_objects): Plotly graph_objects figure.
         error_type (str): Takes in either: ['min', 'max', 'std']
         xcol (pd.Series): Series to plot in the x-axis.
         ycol (pd.DataFrame): Metric to plot in the y-axis. Must be a
@@ -19,6 +22,9 @@ def add_error_bands(plot_fig, error_type, xcol, ycol, r, c,
     Kwargs:
         show_on_legend (bool): Toggle whether to add traces to the plot legend.
 
+    Returns:
+        A plotly.graph_objects instance. Returns the input figure with added
+        error bands.
     """
     band_fill = 'rgba(214, 219, 228, 0.6)'
 
@@ -87,12 +93,16 @@ def simple_time_series(plotly_fig, xcol, ycol, xlabel, ylabel,
                        plot_type='Bar', row_idx=None, col_idx=None,
                        width_px=None, height_px=None, marker_dict=None,
                        lineshape='linear', bar_text_template='%{y.:3s}'):
-    """
+    """ Template for building a simple, themed time-series plot. Implemented
+    for plot types 'Bar' and 'Scatter'.
+
     Args:
-        xcol (pd.Series)
-        ycol (pd.Series)
-        xlabel (str)
-        ylabel (str)
+        xcol (pd.Series): Series to plot in the x-axis.
+        ycol (pd.Series): Series to plot in the y-axis.
+        xlabel (str): String identifying the x-axis data, for use in the legend
+                      and axis title.
+        ylabel (str): String identifying the y-axis data, for use in the legend
+                      and axis title.
 
     Kwargs:
         plot_type (str): Takes in 'Bar' or 'Scatter' (not case-sensitive).

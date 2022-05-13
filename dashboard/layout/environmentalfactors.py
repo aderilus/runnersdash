@@ -1,4 +1,7 @@
-from audioop import avg
+""" Functions and components associated with environmental factors section
+of the dashboard.
+"""
+
 from dash import dcc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -27,7 +30,7 @@ vo2 = colmapper('VO2', data.columns)
 hrvar = colmapper('Heart Rate Variability', data.columns)
 resrate = colmapper('Respiratory Rate', data.columns)
 
-# dcc Components
+# --- dcc COMPONENTS --- #
 y_options = [avg_pace, avg_mets, vo2, hrvar, resrate, tot_dist, tot_dur, elev_gain]
 weather_factors_y = dcc.Dropdown(
     options=[
@@ -40,15 +43,10 @@ weather_factors_y = dcc.Dropdown(
 weather_factors_plot = dcc.Graph(id="weather-factors-plot")
 
 
+# --- PLOT BUILDING FUNCTIONS --- #
 def build_weather_factors_plot(y):
 
-    # # Load and filter dataset
-    # data = get_latest_daily_agg()
-    # # Get columns
-    # indoor_workout = colmapper('Indoor Workout', data.columns)
-    # avg_temp = colmapper('Temperature', data.columns)
-    # avg_humid = colmapper('Humidity', data.columns)
-    # Filter
+    # Filter dataset to 1) outdoor workouts, 2) where Temp is not null
     dfiltered = data[(data[indoor_workout] < 1) & (data[avg_temp].notna())]
 
     # Get units

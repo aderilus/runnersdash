@@ -7,8 +7,6 @@ import plotly.graph_objects as go
 import dash_bootstrap_components as dbc
 import utils
 from dash import dcc, html
-from datetime import date
-from pandas import to_datetime
 from plotly.subplots import make_subplots
 
 
@@ -79,7 +77,7 @@ y3_picker = dcc.Dropdown(
     clearable=False,
 )
 
-# Graph options
+# GRAPH OPTIONS
 y_options_container = html.Div(
     [
         html.Div([y1_picker],
@@ -124,20 +122,6 @@ line_shape_picker = dbc.RadioItems(
     id='time-series-line-shape'
 )
 
-# monthly_graph_options = dbc.Collapse(
-#     [
-#         dbc.Card([
-#             dbc.CardBody(
-#                 [
-#                     html.H6("Monthly view plot options",
-#                             style={"font-size": "0.90rem"}),
-#                 ],
-#             )
-#         ],)
-#     ],
-#     id="toggle-daily-overlay",
-#     is_open=False,
-# )
 
 graph_options_container = html.Div(
     children=[
@@ -155,32 +139,36 @@ graph_options_container = html.Div(
 )
 
 
-# --- GRAPH BUILDING ROUTINES --- #
+# --- GRAPH BUILDING ROUTINE(S) --- #
 def build_agg_binned_across_year(input_year, freq,
                                  ycol, ycol_sub,
                                  y2col, y2col_sub,
                                  y3col, y3col_sub,
                                  line_type='linear',
                                  show_daily_scatter=False):
-    """
+    """ Builds time-series plots found on home page (home.py).
 
     Args:
-        input_year ():
+        input_year (int): The year to which the dataset will be filtered by.
         freq (str): Specifies aggregation frequency, takes in either 'w' or 'm'
             representing weekly and monthly binning respectively.
-        ycol (str):
-        ycol_sub (str):
-        y2col (str):
-        y2col_sub (str):
-        y3col (str):
-        y3col_sub (str):
+        ycol (str): Y1 axis column name, associated with row 1 subplot.
+        ycol_sub (str): Y1 secondary column identifier for dataset with
+                        MultiIndex header.
+        y2col (str): Y2 axis column name, associated with row 2 subplot.
+        y2col_sub (str): Y2 secondary column identifier.
+        y3col (str): Y3 axis column name, associated with row 3 subplot.
+        y3col_sub (str): Y3 secondary column identifier.
 
     Kwargs:
         line_type (str): Line plot shape (the line_shape param of go.Scatter(),
                          or linetype param of add_error_bands().) Takes in
                          either 'linear' or 'spline'. Default 'linear'.
         show_daily_scatter (bool): Toggle overlay daily data points over graph.
-            Default False.
+                                   Default False.
+
+    Returns:
+        A plotly.graph_objects figure.
     """
     weekly_bin = True if freq == 'w' else False
 
@@ -384,7 +372,7 @@ def build_agg_binned_across_year(input_year, freq,
     r1 = [y_extremas[0][0] - y_offset[0][0], y_extremas[0][1] + y_offset[0][1]]
     fig.update_yaxes(range=r1, row=1, col=1)
 
-    # Implement across all y-axes
+    # Implement across all y-axes (currently not in use)
     # for i in range(len(y_map)):
     #     r = [y_extremas[i][0] - y_offset[i][0], y_extremas[i][1] + y_offset[i][1]]
     #     fig.update_yaxes(title_text=y_map[i][0], range=r,

@@ -6,7 +6,7 @@ from dash import dcc, html
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from math import ceil
-from pandas import NamedAgg, MultiIndex
+from pandas import NamedAgg
 from dashboard.assets.custom_themes import custom_theme1
 from dashboard.layout.graphing import add_error_bands
 from utils import (get_column_extremas,
@@ -16,6 +16,7 @@ from utils import (get_column_extremas,
                    get_unit_from_string)
 
 
+# --- dcc COMPONENTS --- #
 rh_title = html.H5(children="Running Habits", id='running-habits-title')
 rh_dow = dcc.Graph(id='running-habits-dow')  # Day of Week histogram
 rh_tod = dcc.Graph(id='running-habits-tod')  # Time of day histogram
@@ -23,11 +24,26 @@ rh_run_distance = dcc.Graph(id='running-habits-rundist')  # Run distance histogr
 
 
 def generate_plot_title(title_prefix, input_year):
+    """ Returns a string.
+    """
     title_suffix = input_year if type(input_year) == int else "across all years"
     return f"{title_prefix} {title_suffix}"
 
 
+# --- PLOT BUILDING FUNCTIONS --- #
 def build_dow_histogram(yr):
+    """ Returns a plotly.graph_objects instance. Creates histogram of runs
+    and distance per run according to their day of the week, across
+    the input year.
+
+    Args:
+        yr (int): Year.
+
+    Returns:
+        A plotly.graph_objects instance. This figure is a 2-row plot, where the
+        first row is the histogram.
+    """
+
     data = get_running_logs()
     # Filter data
     dfiltered = data[data['startDate'].dt.year == yr].copy() if type(yr) == int else data.copy()
@@ -110,7 +126,16 @@ def build_dow_histogram(yr):
 
 
 def build_tod_histogram(yr):
-    """
+    """ Returns a plotly.graph_objects instance. Creates histogram of runs
+    and distance per run according to their start hour (time of day), across
+    the input year.
+
+    Args:
+        yr (int): Year.
+
+    Returns:
+        A plotly.graph_objects instance. This figure is a 2-row plot, where the
+        first row is the histogram.
     """
 
     # Load data
@@ -195,6 +220,18 @@ def build_tod_histogram(yr):
 
 
 def build_runmetric_histogram(yr):
+    """ Returns a plotly.graph_objects instance. Creates histograms of runs
+    across the input year, according to
+            1) total distance
+            2) total duration
+            3) avg. METs
+
+    Args:
+        yr (int): Year.
+
+    Returns:
+        A plotly.graph_objects instance. This figure is a 3-column plot.
+    """
     # Load data
     data = get_resampled_runs()
     # Filter out empty rows (days with no runs)
@@ -211,7 +248,6 @@ def build_runmetric_histogram(yr):
 
     fig = make_subplots(rows=1, cols=3,
                         horizontal_spacing=0.03,
-                        # vertical_spacing=0.08,
                         # column_widths=[0.33, 0.33, 0.33]
                         )
 
