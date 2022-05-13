@@ -39,10 +39,11 @@ def update_main_time_series_title(in_year, monthly_toggled):
      Input("time-series-y3", "value"),
      Input("time-bin-toggle", "value"),
      Input("daily-data-overlay", "value"),
+     Input("time-series-line-shape", "value")
      ],
 )
 def update_weekly_time_series(in_year, y1, y2, y3, monthly_toggled,
-                              daily_overlay):
+                              daily_overlay, line_shape):
     y_splits = [y.split('_') for y in [y1, y2, y3]]
     y_cols = [(i, j) if j != ' ' else (i, None) for i, j in y_splits]
 
@@ -51,6 +52,7 @@ def update_weekly_time_series(in_year, y1, y2, y3, monthly_toggled,
                                        ycol=y_cols[0][0], ycol_sub=y_cols[0][1],
                                        y2col=y_cols[1][0], y2col_sub=y_cols[1][1],
                                        y3col=y_cols[2][0], y3col_sub=y_cols[2][1],
+                                       line_type=line_shape,
                                        show_daily_scatter=daily_overlay
                                        )
     return fig

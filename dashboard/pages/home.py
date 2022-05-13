@@ -5,9 +5,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 from dashboard.layout.header import navbar, min_year, max_year
 from dashboard.layout.timeseriesplots import (highresweeklyplots,
-                                              y1_picker,
-                                              y2_picker,
-                                              y3_picker,
+                                              graph_options_container
                                               )
 from dashboard.layout.statscard import (week_stats_container,
                                         month_stats_container,)
@@ -57,69 +55,6 @@ year_slider_vert = dcc.Slider(
 #     value=False,
 #     label_class_name="body",
 # )
-
-# --- GRAPH OPTIONS CONTAINER --- #
-y_options_container = html.Div(
-    [
-        html.Div([y1_picker],
-                 style={'padding': '0.25rem'},
-                 #  style={"display": "inline-block", "width": "36%",
-                 #         "float": "left", "padding": "0.25rem"}
-                 ),
-        html.Div([y2_picker],
-                 style={'padding': '0.25rem'},
-                 #  style={"display": "inline-block", "width": "26.5%",
-                 #         "float": "center", "padding": "0.25rem"},
-                 ),
-        html.Div([y3_picker],
-                 style={'padding': '0.25rem'},
-                 #  style={"display": "inline-block", "width": "37.5%",
-                 #         "float": "right", "padding": "0.25rem"},
-                 ),
-    ],
-)
-
-time_bin_type = dbc.Switch(
-    id="time-bin-toggle",
-    label="Toggle month-to-month view",
-    value=False,
-    label_class_name="body",
-)
-
-daily_overlay_switch = dbc.Switch(
-    id="daily-data-overlay",
-    label="Overlay scatter plot of daily metrics",
-    value=False,
-    label_class_name="body",
-)
-
-# monthly_graph_options = dbc.Collapse(
-#     [
-#         dbc.Card([
-#             dbc.CardBody(
-#                 [
-#                     html.H6("Monthly view plot options",
-#                             style={"font-size": "0.90rem"}),
-#                 ],
-#             )
-#         ],)
-#     ],
-#     id="toggle-daily-overlay",
-#     is_open=False,
-# )
-
-graph_options_container = html.Div(
-    children=[
-        html.H6("Time-series plot options"),
-        y_options_container,
-        html.Div([
-            time_bin_type,
-            daily_overlay_switch,
-            # monthly_graph_options,
-        ], style={"padding": "0.25rem"}),
-    ],
-    style={"padding": "0.25rem"}
-)
 
 
 # --- PLOT CONTAINERS/CARDS --- #

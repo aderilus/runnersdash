@@ -1,10 +1,12 @@
 """ Graph building routine(s) and dcc components associated with
 main page time-series graphs.
 """
-import dashboard.layout.graphing as gr
+from dashboard.assets.custom_themes import custom_theme1
+from dashboard.layout.graphing import add_error_bands
 import plotly.graph_objects as go
+import dash_bootstrap_components as dbc
 import utils
-from dash import dcc
+from dash import dcc, html
 from datetime import date
 from pandas import to_datetime
 from plotly.subplots import make_subplots
@@ -77,12 +79,88 @@ y3_picker = dcc.Dropdown(
     clearable=False,
 )
 
+# Graph options
+y_options_container = html.Div(
+    [
+        html.Div([y1_picker],
+                 style={'padding': '0.25rem'},
+                 #  style={"display": "inline-block", "width": "36%",
+                 #         "float": "left", "padding": "0.25rem"}
+                 ),
+        html.Div([y2_picker],
+                 style={'padding': '0.25rem'},
+                 #  style={"display": "inline-block", "width": "26.5%",
+                 #         "float": "center", "padding": "0.25rem"},
+                 ),
+        html.Div([y3_picker],
+                 style={'padding': '0.25rem'},
+                 #  style={"display": "inline-block", "width": "37.5%",
+                 #         "float": "right", "padding": "0.25rem"},
+                 ),
+    ],
+)
+
+time_bin_type = dbc.Switch(
+    id="time-bin-toggle",
+    label="Toggle month-to-month view",
+    value=False,
+    label_class_name="body",
+)
+
+daily_overlay_switch = dbc.Switch(
+    id="daily-data-overlay",
+    label="Overlay scatter plot of daily metrics",
+    value=False,
+    label_class_name="body",
+)
+
+line_shape_picker = dbc.RadioItems(
+    options=[
+        {'label': 'Linear', 'value': 'linear'},
+        {'label': 'Spline', 'value': 'spline'},
+    ],
+    value='linear',
+    inline=True,
+    id='time-series-line-shape'
+)
+
+# monthly_graph_options = dbc.Collapse(
+#     [
+#         dbc.Card([
+#             dbc.CardBody(
+#                 [
+#                     html.H6("Monthly view plot options",
+#                             style={"font-size": "0.90rem"}),
+#                 ],
+#             )
+#         ],)
+#     ],
+#     id="toggle-daily-overlay",
+#     is_open=False,
+# )
+
+graph_options_container = html.Div(
+    children=[
+        html.H6("Time-series plot options"),
+        y_options_container,
+        html.Div([
+            time_bin_type,
+            daily_overlay_switch,
+            dbc.Label(["Line shape"], style={"font-weight": '600'}),
+            line_shape_picker,
+            # monthly_graph_options,
+        ], style={"padding": "0.25rem"}),
+    ],
+    style={"padding": "0.25rem"}
+)
+
 
 # --- GRAPH BUILDING ROUTINES --- #
 def build_agg_binned_across_year(input_year, freq,
                                  ycol, ycol_sub,
                                  y2col, y2col_sub,
                                  y3col, y3col_sub,
+                                 line_type='linear',
                                  show_daily_scatter=False):
     """
 
@@ -98,6 +176,9 @@ def build_agg_binned_across_year(input_year, freq,
         y3col_sub (str):
 
     Kwargs:
+        line_type (str): Line plot shape (the line_shape param of go.Scatter(),
+                         or linetype param of add_error_bands().) Takes in
+                         either 'linear' or 'spline'. Default 'linear'.
         show_daily_scatter (bool): Toggle overlay daily data points over graph.
             Default False.
     """
@@ -114,6 +195,8 @@ def build_agg_binned_across_year(input_year, freq,
     date_col = data.index
     max_year = date_col[-1].year  # If in_year = max_year, do something special
 
+    # If selected year is current year (latest in the dataset), fill in empty
+    # space with data from the previous year (in grey)
     if input_year == max_year:
         last_month = date_col[-1].month
         dfiltered = data[date_col >= '{y}-{m}-01'.format(y=input_year - 1, m=last_month + 1)]
@@ -137,25 +220,99 @@ def build_agg_binned_across_year(input_year, freq,
                         vertical_spacing=SUBPLOT_SPACING_V,
                         shared_xaxes=True)
 
+    # row 1: Bar graph
+    # Hover template
     bar_template = '%{y:.2s}' if weekly_bin else '%{y:.3s}'
-    fig = gr.simple_time_series(fig, xcol=dfiltered.index, ycol=y_series[0],
-                                xlabel=None, ylabel=ycol,
-                                row_idx=1, col_idx=1,
-                                width_px=None, height_px=None,
-                                marker_dict=marker_input,
-                                bar_text_template=bar_template)
+    fig.add_trace(
+        go.Bar(
+            x=dfiltered.index, y=y_series[0],
+            name=ycol,
+            texttemplate=bar_template,
+            marker=marker_input
+        ),
+        row=1, col=1
+    )
 
-    fig = gr.simple_time_series(fig, xcol=dfiltered.index, ycol=y_series[1],
-                                xlabel=None, ylabel=y2col, plot_type='scatter',
-                                row_idx=2, col_idx=1, height_px=None,
-                                lineshape='spline')
+    # fig = gr.simple_time_series(fig, xcol=dfiltered.index, ycol=y_series[0],
+    #                             xlabel=None, ylabel=ycol,
+    #                             row_idx=1, col_idx=1,
+    #                             width_px=None, height_px=None,
+    #                             marker_dict=marker_input,
+    #                             bar_text_template=bar_template)
 
-    fig = gr.simple_time_series(fig, xcol=dfiltered.index, ycol=y_series[2],
-                                xlabel=None, ylabel=y3col, plot_type='scatter',
-                                row_idx=3, col_idx=1, height_px=None,
-                                lineshape='spline')
+    # row 2: Min/max or std dev band
+    # These bands are defined first before the average so it won't
+    # be the topmost layer of the plot.
+    r2_line_type = line_type  # Line shape param
 
-    # Update x-ticks
+    y2columns = dfiltered[y2col].columns
+    if 'std' in y2columns:
+        fig = add_error_bands(plot_fig=fig,
+                              error_type='std',
+                              xcol=dfiltered.index,
+                              ycol=dfiltered[y2col],
+                              linetype=r2_line_type,
+                              r=2, c=1,
+                              show_on_legend=False,
+                              )
+    elif 'min' in y2columns:
+        fig = add_error_bands(plot_fig=fig,
+                              error_type='min',
+                              xcol=dfiltered.index,
+                              ycol=dfiltered[y2col],
+                              linetype=r2_line_type,
+                              r=2, c=1,
+                              show_on_legend=False,
+                              )
+
+    # row 2: scatter/line plot
+    fig.add_trace(
+        go.Scatter(
+            x=dfiltered.index, y=y_series[1],
+            name=y2col,
+            line_shape=r2_line_type,
+            mode='lines+markers',
+            cliponaxis=True
+        ),
+        row=2, col=1
+    )
+
+    # row 3: Error bands
+    r3_line_type = line_type
+    y3columns = dfiltered[y3col].columns
+
+    if 'std' in y3columns:
+        fig = add_error_bands(plot_fig=fig,
+                              error_type='std',
+                              xcol=dfiltered.index,
+                              ycol=dfiltered[y3col],
+                              linetype=r3_line_type,
+                              r=3, c=1,
+                              show_on_legend=False,
+                              )
+    elif 'max' in y3columns:
+        fig = add_error_bands(plot_fig=fig,
+                              error_type='min',
+                              xcol=dfiltered.index,
+                              ycol=dfiltered[y3col],
+                              linetype=r3_line_type,
+                              r=3, c=1,
+                              show_on_legend=False,
+                              )
+
+    # row 3: scatter/line plot
+    fig.add_trace(
+        go.Scatter(
+            x=dfiltered.index, y=y_series[2],
+            name=y3col,
+            line_shape=r3_line_type,
+            mode='lines+markers',
+            cliponaxis=True
+        ),
+        row=3, col=1
+    )
+
+    # Update x1-ticks
     x_tick_filter = dfiltered[(dfiltered.index.day >= 1) & (dfiltered.index.day <= 7)]
     x_tick_labels = []
     for i, w in enumerate(x_tick_filter.index):
@@ -174,6 +331,7 @@ def build_agg_binned_across_year(input_year, freq,
 
         x_tick_labels.append(lbl)
 
+    # Update x2-ticks
     if weekly_bin:
         x2_tick_labels = ["{d:02}<br>{m}".format(m=utils.MONTHS_MAP[i.month][:3], d=i.day) for i in x_tick_filter.index]
     else:
@@ -208,9 +366,9 @@ def build_agg_binned_across_year(input_year, freq,
     fig.update_layout(
         xaxis2=matching_xaxis_prop,
         xaxis3=matching_xaxis_prop,
-        yaxis=dict(tick0=0),
-        yaxis2=dict(layer=axis_layer_param),
-        yaxis3=dict(layer=axis_layer_param),
+        yaxis=dict(tick0=0, title=ycol),
+        yaxis2=dict(layer=axis_layer_param, title=y2col),
+        yaxis3=dict(layer=axis_layer_param, title=y3col),
     )
 
     # Since we set shared_xaxes = True, but we still want to show tick
@@ -222,12 +380,18 @@ def build_agg_binned_across_year(input_year, freq,
     # Add absolute y-scale across the years based on max y
     y_extremas = [utils.get_column_extremas(data, i, j) for i, j in y_map]
 
-    for i in range(len(y_map)):
-        r = [y_extremas[i][0] - y_offset[i][0], y_extremas[i][1] + y_offset[i][1]]
-        fig.update_yaxes(title_text=y_map[i][0], range=r,
-                         row=i + 1, col=1)
+    # For now, implement only for the first y-axis (row 1)
+    r1 = [y_extremas[0][0] - y_offset[0][0], y_extremas[0][1] + y_offset[0][1]]
+    fig.update_yaxes(range=r1, row=1, col=1)
+
+    # Implement across all y-axes
+    # for i in range(len(y_map)):
+    #     r = [y_extremas[i][0] - y_offset[i][0], y_extremas[i][1] + y_offset[i][1]]
+    #     fig.update_yaxes(title_text=y_map[i][0], range=r,
+    #                      row=i + 1, col=1)
 
     fig.update_layout(
+        template=custom_theme1,
         height=675,
         hovermode="x",
     )
@@ -258,152 +422,6 @@ def build_agg_binned_across_year(input_year, freq,
                 x=trace_daily.index,
                 y=trace_daily[y3col],
                 name=y3col.split(' (')[0] + 'for single run',
-                mode='markers',
-                cliponaxis=True,
-                marker=dict(color='rgba(212, 123, 101, 0.35)',
-                            symbol='circle-open'),
-                showlegend=False
-            ),
-            row=3, col=1,
-        )
-
-    return fig
-
-
-def build_monthly_binned_across_year(input_year, ycol, y2col=None, y3col=None,
-                                     show_daily_scatter=False):
-    """
-    """
-    y_offset = [(0, 10), (0.5, 0.5), (0.5, 0.5)]  # Offset values for each y-axis (min, max)
-    data = monthly_data
-    date_col = data.index
-    y_cols = [ycol, y2col, y3col]
-    max_year = date_col[-1].year  # If in_year = max_year, do something special
-
-    if input_year == max_year:
-        last_month = date_col[-1].month
-        dfiltered = data[date_col >= '{y}-{m}-01'.format(y=input_year - 1, m=last_month + 1)]
-        last_of_prev_yr = len(dfiltered[date_col.year == input_year - 1])
-        color_scale = ["#e7c280" for _ in range(len(dfiltered))]
-        color_scale[:last_of_prev_yr] = ["rgba(188, 196, 209, 0.6)"] * last_of_prev_yr
-        marker_input = dict(color=color_scale)
-
-    else:
-        dfiltered = data[date_col.year == int(input_year)]
-        marker_input = None
-
-    fig = make_subplots(rows=3, cols=1, row_heights=[0.3] * 3,
-                        vertical_spacing=SUBPLOT_SPACING_V,
-                        shared_xaxes=True,
-                        )
-
-    fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[0],
-                                xlabel=None, ylabel=y_cols[0],
-                                row_idx=1, col_idx=1,
-                                width_px=None, height_px=None,
-                                marker_dict=marker_input,
-                                bar_text_template='%{y:.3s}')
-
-    fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[1],
-                                xlabel=None, ylabel=y_cols[1], plot_type='scatter',
-                                row_idx=2, col_idx=1, height_px=None,
-                                lineshape='spline')
-
-    fig = gr.simple_time_series(fig, dfiltered, xcol=date_col, ycol=y_cols[2],
-                                xlabel=None, ylabel=y_cols[2], plot_type='scatter',
-                                row_idx=3, col_idx=1, height_px=None,
-                                lineshape='spline')
-
-    # Update x-ticks
-    x_tick_filter = dfiltered[(dfiltered[date_col].dt.day >= 1) & (dfiltered[date_col].dt.day <= 7)]
-    x_tick_labels = []
-    for i, w in enumerate(x_tick_filter[date_col]):
-        if i == 0 or i == 11:
-            lbl = "{m} {y}".format(m=utils.MONTHS_MAP[w.month][:3], y=w.year)
-        else:
-            lbl = "{m}".format(m=utils.MONTHS_MAP[w.month][:3])
-        x_tick_labels.append(lbl)
-
-    fig.update_layout(
-        xaxis1=dict(
-            tickmode='array',
-            nticks=12,
-            ticks='outside',
-            tickvals=x_tick_filter[date_col],
-            ticktext=x_tick_labels,
-        ),
-        bargap=0.25,
-        uniformtext_minsize=10,
-        uniformtext_mode='hide',
-        # margin=dict(l=5, r=3),
-    )
-
-    matching_xaxis_prop = dict(
-        tickmode='array',
-        nticks=12,
-        ticks='outside',
-        tickvals=x_tick_filter[date_col],
-        ticktext=x_tick_labels,
-        # range=dfiltered[date_col].iloc[[0, -1]],
-    )
-
-    # Since cliponaxis=True for Scatter plot, this will
-    # ensure marker nodes are displayed above axis lines
-    axis_layer_param = 'below traces'
-
-    fig.update_layout(
-        xaxis2=matching_xaxis_prop,
-        xaxis3=matching_xaxis_prop,
-        yaxis=dict(tick0=0),
-        yaxis2=dict(layer=axis_layer_param),
-        yaxis3=dict(layer=axis_layer_param),
-    )
-
-    # Since we set shared_xaxes = True, but we still want to show tick
-    # labels for each subplot.
-    fig.layout['xaxis'].showticklabels = True
-    fig.layout['xaxis2'].showticklabels = True
-
-    # Update y-axes
-    # Add absolute y-scale across the years based on max y
-    y_extremas = [utils.get_column_extremas(data, colname) for colname in y_cols]
-
-    for i in range(len(y_cols)):
-        r = [y_extremas[i][0] - y_offset[i][0], y_extremas[i][1] + y_offset[i][1]]
-        fig.update_yaxes(title_text=y_cols[i], range=r,
-                         row=i + 1, col=1)
-
-    fig.update_layout(
-        height=675,
-        hovermode="x",
-    )
-
-    # If toggled, overlay daily data onto the last two traces
-    if show_daily_scatter:
-        if input_year == max_year:
-            date_bounds = dfiltered[date_col].iloc[0]
-            trace_daily = daily_data[daily_data[date_col] >= date_bounds]
-        else:
-            trace_daily = daily_data[daily_data[date_col].dt.year == input_year]
-        fig.add_trace(
-            go.Scatter(
-                x=trace_daily[date_col],
-                y=trace_daily[y_cols[1]],
-                name=y_cols[1].split('(')[0] + 'for single run',
-                mode='markers',
-                cliponaxis=True,
-                marker=dict(color='rgba(52, 105, 167, 0.35)',
-                            symbol='circle-open'),
-                showlegend=False
-            ),
-            row=2, col=1,
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=trace_daily[date_col],
-                y=trace_daily[y_cols[2]],
-                name=y_cols[2].split(' (')[0] + 'for single run',
                 mode='markers',
                 cliponaxis=True,
                 marker=dict(color='rgba(212, 123, 101, 0.35)',

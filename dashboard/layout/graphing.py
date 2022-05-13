@@ -4,6 +4,84 @@ import plotly.graph_objects as go
 from dashboard.assets.custom_themes import custom_theme1
 
 
+def add_error_bands(plot_fig, error_type, xcol, ycol, r, c,
+                    linetype, show_on_legend=False):
+    """
+    Args:
+        plot_fig (plotly.graph_objects): Plotly figure object.
+        error_type (str): Takes in either: ['min', 'max', 'std']
+        xcol (pd.Series): Series to plot in the x-axis.
+        ycol (pd.DataFrame): Metric to plot in the y-axis. Must be a
+                             DataFrame with MultiIndex header.
+        r (int): Row number
+        c (int): Column number
+
+    Kwargs:
+        show_on_legend (bool): Toggle whether to add traces to the plot legend.
+
+    """
+
+    if error_type == 'std':
+        plot_fig.add_trace(
+            go.Scatter(
+                name='y + std',
+                x=xcol,
+                y=ycol['mean'] + ycol['std'],
+                mode='lines',
+                line=dict(width=0, color='rgba(255,255,255,0)'),
+                line_shape=linetype,
+                showlegend=show_on_legend,
+            ),
+            row=r, col=c
+        )
+
+        plot_fig.add_trace(
+            go.Scatter(
+                name='y - std',
+                x=xcol,
+                y=ycol['mean'] - ycol['std'],
+                mode='lines',
+                line=dict(width=0, color='rgba(255,255,255,0)'),
+                line_shape=linetype,
+                fill='tonexty',
+                fillcolor='rgba(214, 219, 228, 0.8)',
+                showlegend=show_on_legend,
+            ),
+            row=r, col=c
+        )
+
+    elif error_type in ['min', 'max']:
+        plot_fig.add_trace(
+            go.Scatter(
+                name='max',
+                x=xcol,
+                y=ycol['max'],
+                mode='lines',
+                line_shape=linetype,
+                line=dict(width=0, color='rgba(255,255,255,0)'),
+                showlegend=show_on_legend,
+            ),
+            row=r, col=c
+        )
+
+        plot_fig.add_trace(
+            go.Scatter(
+                name='min',
+                x=xcol,
+                y=ycol['min'],
+                mode='lines',
+                line=dict(width=0, color='rgba(255,255,255,0)'),
+                line_shape=linetype,
+                fill='tonexty',
+                fillcolor='rgba(214, 219, 228, 0.8)',
+                showlegend=show_on_legend,
+            ),
+            row=r, col=c
+        )
+
+    return plot_fig
+
+
 def simple_time_series(plotly_fig, xcol, ycol, xlabel, ylabel,
                        plot_type='Bar', row_idx=None, col_idx=None,
                        width_px=None, height_px=None, marker_dict=None,
