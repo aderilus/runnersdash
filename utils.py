@@ -10,18 +10,6 @@ from calendar import monthrange, monthcalendar, week
 from datetime import datetime, timedelta, date
 
 # --- Constants --- #
-# COLMAPPER = {'distance': 'Total Distance (km)',
-#              'duration': 'Total Duration (min)',
-#              'avg distance': 'Avg. Distance (km)',
-#              'avg duration': 'Avg. Duration (min)',
-#              'avg vo2': 'Avg. VO2Max (mL/min·kg)',
-#              'weight': 'Avg. BodyMass (lb)',
-#              'calories': 'Total Energy Burned From Run (Cal)',
-#              'avg rhr': 'Avg. Resting HR (bpm)',
-#              'date': 'Date',
-#              'week': 'Week',
-#              'avg pace': 'Avg. Pace (min/km)',
-#              'menstrual flow': 'MenstrualFlow (num)'}
 DAYS_OF_WK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 DAY_MAP = dict(zip(range(1, 8), DAYS_OF_WK))  # Use date.isoweekday()
 MONTHS = ['January', 'February', 'March', 'April', 'May',
@@ -177,6 +165,9 @@ def colmapper(substr, column_list):
         substr (str): Substring (case-sensitive) to find within column list.
         column_list (list): DataFrame list of columns. Can be single or
             MultiIndex.
+
+    Returns:
+        A string matching an element within column_list.
     """
 
     # If column_list is MultiIndex, flatten to the first level
@@ -300,7 +291,7 @@ def get_resampled_runs(verbose=False):
 
 
 def get_running_logs(verbose=False):
-    """ Returns the latest version of Running-type workouts as a DataFrame.
+    """ Returns the latest version of "{date}_Running.csv" as a DataFrame.
     """
     dtype_map = {'sourceName': str}
     data_path = get_csv_file_path('running-log', verbose)
