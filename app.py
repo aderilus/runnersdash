@@ -1,4 +1,7 @@
 """ Dash dashboard entry point.
+
+USAGE:
+    $ python app.py
 """
 
 import webbrowser
