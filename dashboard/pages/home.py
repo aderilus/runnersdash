@@ -22,7 +22,7 @@ YEAR_RANGE = list(range(min_year, max_year + 1))
 row2_leftcol_size = 8
 row2_rightcol_size = 4
 
-# --- SELECT TIME --- #
+# --- TIME-SERIES PLOTS: SELECT YEAR --- #
 year_slider = dcc.Slider(
     min=min_year,
     max=max_year,
@@ -44,17 +44,6 @@ year_slider_vert = dcc.Slider(
     id="year-slider-vertical",
     vertical=True,
 )
-
-
-# --- Y INPUT --- #
-
-# For monthly time-series
-# prev_year_toggle = dbc.Switch(
-#     id="compare-prev-year",
-#     label="Compare against previous year",
-#     value=False,
-#     label_class_name="body",
-# )
 
 
 # --- PLOT CONTAINERS/CARDS --- #
@@ -118,8 +107,6 @@ month_subplot_container = html.Div(
 
 rh_dow_card = dbc.Card(
     children=[
-        # dbc.CardHeader(html.H6("",
-        #                        id="running-habits-title")),
         dbc.CardBody(
             [
                 rh_dow,
@@ -130,8 +117,6 @@ rh_dow_card = dbc.Card(
 
 rh_tod_card = dbc.Card(
     children=[
-        # dbc.CardHeader(html.H6("",
-        #                        id="running-habits-title")),
         dbc.CardBody(
             [
                 rh_tod,
@@ -191,7 +176,7 @@ module_d = dbc.Col(
     width={"size": 5},
 )
 
-# Row 2, right col
+# Row 2, right col, top
 module_e = dbc.Col(
     children=[
         rh_tod_card
@@ -199,7 +184,7 @@ module_e = dbc.Col(
     width={"size": 7}
 )
 
-# Row 2, right col
+# Row 2, right col, bottom
 module_f = dbc.Col(
     children=[
         rh_dist_card
@@ -242,7 +227,7 @@ row3_col = dbc.Col(
 
 # --- ROWS --- #
 
-# Row 1
+# Row 1 = Time series plots
 row1 = dbc.Row(
     children=[
         module_a,
@@ -251,7 +236,7 @@ row1 = dbc.Row(
     class_name="g-6",
 )
 
-# Row 2
+# Row 2 = Running habits
 row2 = dbc.Row(
     children=[
         rh_title,
