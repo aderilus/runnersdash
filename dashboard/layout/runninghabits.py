@@ -6,7 +6,9 @@ from dash import dcc, html
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from math import ceil
+from pandas import NamedAgg, MultiIndex
 from dashboard.assets.custom_themes import custom_theme1
+from dashboard.layout.graphing import add_error_bands
 from utils import (get_column_extremas,
                    get_running_logs,
                    get_resampled_runs,
@@ -55,12 +57,24 @@ def build_dow_histogram(yr):
     )
 
     # Distance per run for each day of the week (r2, c1) (x4, y4)
-    avgdistperdow = dfiltered[['DOW numeric', total_dist]].copy().groupby(['DOW numeric']).mean()
+    avgdistperdow = dfiltered[['DOW numeric', total_dist]].copy().groupby(['DOW numeric']).agg(
+        mean=NamedAgg(column=total_dist, aggfunc='mean'),
+        std=NamedAgg(column=total_dist, aggfunc='std')
+    )
+    avgdistperdow.columns = [[total_dist, total_dist], avgdistperdow.columns]
     avgdistperdow['Day of Week'] = avgdistperdow.index.map(dict(zip(range(7), dows_ordered)))
+
+    # Error bands
+    fig = add_error_bands(fig, error_type='std',
+                          xcol=avgdistperdow['Day of Week'],
+                          ycol=avgdistperdow[total_dist],
+                          r=2, c=1, linetype='spline')
+
+    # Avg distance per day of week
     fig.add_trace(
         go.Scatter(
             x=avgdistperdow['Day of Week'],
-            y=avgdistperdow[total_dist],
+            y=avgdistperdow[total_dist]['mean'],
             xaxis="x2",
             yaxis="y2",
             name=f"Avg. Distance ({get_unit_from_string(total_dist)}) per run",
@@ -126,12 +140,26 @@ def build_tod_histogram(yr):
     )
 
     # Distance run per time of day (r2, c1)
-    avgdistperhour = dfiltered[['runStartHour', total_dist]].copy().groupby(['runStartHour']).mean()
+    avgdistperhour = dfiltered[['runStartHour', total_dist]].copy().groupby(['runStartHour']).agg(
+        mean=NamedAgg(column=total_dist, aggfunc='mean'),
+        std=NamedAgg(column=total_dist, aggfunc='std')
+    )
+    avgdistperhour.columns = [[total_dist, total_dist], avgdistperhour.columns]
 
+    # Distance per run time - error band
+    fig = add_error_bands(fig,
+                          error_type='std',
+                          xcol=avgdistperhour.index,
+                          ycol=avgdistperhour[total_dist],
+                          r=2, c=1,
+                          linetype='spline',
+                          )
+
+    # Distance per run time
     fig.add_trace(
         go.Scatter(
             x=avgdistperhour.index,
-            y=avgdistperhour[total_dist],
+            y=avgdistperhour[total_dist]['mean'],
             xaxis="x2",
             yaxis="y2",
             name=f"Avg. Distance ({get_unit_from_string(total_dist)}) per run",
