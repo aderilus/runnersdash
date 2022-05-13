@@ -20,6 +20,7 @@ def add_error_bands(plot_fig, error_type, xcol, ycol, r, c,
         show_on_legend (bool): Toggle whether to add traces to the plot legend.
 
     """
+    band_fill = 'rgba(214, 219, 228, 0.6)'
 
     if error_type == 'std':
         plot_fig.add_trace(
@@ -44,7 +45,7 @@ def add_error_bands(plot_fig, error_type, xcol, ycol, r, c,
                 line=dict(width=0, color='rgba(255,255,255,0)'),
                 line_shape=linetype,
                 fill='tonexty',
-                fillcolor='rgba(214, 219, 228, 0.8)',
+                fillcolor=band_fill,
                 showlegend=show_on_legend,
             ),
             row=r, col=c
@@ -73,7 +74,7 @@ def add_error_bands(plot_fig, error_type, xcol, ycol, r, c,
                 line=dict(width=0, color='rgba(255,255,255,0)'),
                 line_shape=linetype,
                 fill='tonexty',
-                fillcolor='rgba(214, 219, 228, 0.8)',
+                fillcolor=band_fill,
                 showlegend=show_on_legend,
             ),
             row=r, col=c
