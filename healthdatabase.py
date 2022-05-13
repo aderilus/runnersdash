@@ -47,6 +47,9 @@ class HealthDatabase(object):
         Args:
             tablename (str): Name for the table.
             colnames (list): List of column names for the table.
+
+        Returns:
+            None.
         """
         # Create table
         query = "CREATE TABLE {tablename}({cols})".format(tablename=table_name, cols=col_names)
@@ -57,11 +60,11 @@ class HealthDatabase(object):
         """ Creates tables derived from an existing table based on grouping
             similar values of a given column of the source table.
 
-        Input:
+        Args:
             table_name (str): Name of source table.
             col_name (str): Column name to base grouping on
 
-        Optional:
+        Kwargs:
             remove_prefix (list): List of prefixes to strip the table values of
             Example: The values under column 'workoutActivityType' include
                      'HKWorkoutActivityTypeBarre' and
@@ -104,17 +107,19 @@ class HealthDatabase(object):
     def populate_table(self, table_name, entries, placeholder_vals):
         """
         Args:
-            table_name (str):
-            entries (list, or list-like):
-            placeholder_vals (str):
+            table_name (str): Table name to insert to.
+            entries (list, or list-like): List of entries to insert into table.
+            placeholder_vals (str): Placeholder values.
 
+        Returns:
+            None.
         """
         insert_query = "INSERT into {tablename} values({vals})".format(tablename=table_name, vals=placeholder_vals)
 
         self.cursor.executemany(insert_query, entries)
 
     def get_table_count(self, table_name):
-        """ Get the number of rows of a table.
+        """ Get the number of rows of a table as an int.
         """
         query = "SELECT COUNT(*) FROM {tb}".format(tb=table_name)
 
