@@ -62,7 +62,7 @@ def find_substr_in_list(txt, listobj, verbose):
         verbose (bool): Print output.
 
     Returns:
-        None.
+        A string found in listobj.
     """
     pattern = re.compile(fr".*{txt}.*")
     matching = list(filter(pattern.match, listobj))
@@ -179,7 +179,8 @@ def get_monthly_agg_method(list_of_cols):
 
 
 def extract_unit_from_column(dataframe, column_name, unitcolumn):
-    """ Helper function for format_record_table and format_workout_table.
+    """ Returns the unit found in column_name as a string.
+    Helper function for format_record_table and format_workout_table.
     """
     dfiltered = dataframe[(dataframe[unitcolumn] != 'None') & (dataframe[unitcolumn] is not None)]
     distinct_units = dfiltered[unitcolumn].unique()
@@ -192,20 +193,24 @@ def extract_unit_from_column(dataframe, column_name, unitcolumn):
 
 
 def rename_from_camelcase(current_colname, flag_count=0):
-    """ Helper function for format_workout_table.
+    """ Returns the input current_colname string with "HK" prefix and
+    camel case removed. Helper function for format_workout_table.
+
+    Example: "HKElevationAscended (m)" --> "Elevation Ascended (m)"
     """
     noprefix = current_colname.removeprefix("HK")
     pattern = r"(\w)([A-Z])"
 
-    if "VO2Max" in current_colname:
+    if "VO2Max" in current_colname:  # Special case
         pattern = r"(\w\d)([A-Z])"
 
     newcolname = re.sub(pattern, r"\1 \2", noprefix, count=flag_count)
+
     return newcolname
 
 
 def get_col_dtype(column_name):
-    """
+    """ Returns the column dtype of column_name as a string.
     """
     col = column_name.lower().replace(' ', '')
     unit = get_unit_from_string(column_name)
@@ -325,6 +330,9 @@ class DatasetPrep(object):
                 Example: for tablename = 'Running', resulting file name is:
                          "20220320_Running_resampledDaily.csv"
             verbose (bool): Toggle whether to print the resulting file path.
+
+        Returns:
+            None.
         """
         file_suffix_map = {'d-agg': AGG_D_SUFFIX,
                            'w-agg': AGG_W_SUFFIX,
@@ -446,6 +454,7 @@ class DatasetPrep(object):
                     dataframe.rename(columns={col: f"{col_rename} ({distinct_units[0]})"},
                                      inplace=True)
                     dataframe.drop(unit_col, axis=1, inplace=True)
+                # Case: column uses multiple units
                 elif len(distinct_units) > 1 and 'm' in distinct_units:
                     map_to_meter = {'cm': 10**-2, 'mm': 10**-3}
                     # Filter out where unit isn't None or 'm'
@@ -533,6 +542,12 @@ class DatasetPrep(object):
             2. 'Avg Pace (unit)': Pace computed as total duration divided
                 by total distance.
         Helper function for aggregate_daily().
+
+        Args:
+            aggregated_table (pd.DataFrame): The table to add to.
+
+        Returns:
+            The modified DataFrame.
         """
         cols = aggregated_table.columns
 
@@ -721,6 +736,10 @@ class DatasetPrep(object):
         Kwargs:
             return_table (bool): Default True. Returns the aggregated table
                                  as the output.
+
+        Returns:
+            If return_table=True, will return the aggregated DataFrame.
+            Else, does not return anything.
         """
         if freq.startswith('d'):
             agg = self.aggregate_daily(tablename, 'startDate')
@@ -740,8 +759,14 @@ class DatasetPrep(object):
 
     # -- COMBINE AGGREGATES -- #
     def prep_to_join(self, frame):
-        """ Prepare given DataFrame to join with other DataFrames. Helper
-        function for join_aggregates.
+        """ Returns the modified input DataFrame. Prepare given DataFrame to
+        join with other DataFrames. Helper function for join_aggregates.
+
+        Args:
+            frame (pd.DataFrame): DataFrame to format.
+
+        Returns:
+            The modified DataFrame.
         """
         # Set 'Date' column as index
         if frame.index.name != 'Date':
@@ -867,6 +892,9 @@ class DatasetPrep(object):
                 supported, and so only takes in 'd' or 'daily'. Default 'd'.
             write_to_file (bool): Toggle whether to write resulting DataFrame
                 to a CSV. Default False.
+
+        Returns:
+            A resampled DataFrame.
         """
         if workout_name in self.daily_aggregates.keys():
             daily = self.daily_aggregates[workout_name]
