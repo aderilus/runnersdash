@@ -1,10 +1,8 @@
 """ Callbacks associated with components defined in statscard.py
 """
-from select import select
 from dash.dependencies import Input, Output
 from dashboard.index import app
 from datetime import datetime
-from collections import OrderedDict
 from dashboard.layout.statscard import (get_list_of_stats)
 
 
