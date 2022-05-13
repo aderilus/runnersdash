@@ -31,9 +31,6 @@ Things to note:
 - Last tested on Apr. 2022 Apple Health data.
 - This version does not extract elements with tag = "Correlation", "Audiogram",
   or "ClinicalRecord".
-- ver 2.5
-    - Added functionality to extract nodes starting from a certain date and
-      append to latest available database.
 """
 
 __version__ = '2.5'
@@ -186,8 +183,8 @@ class AppleHealthExtraction(object):
         return self.uniquetags
 
     def get_top_level_tags(self):
-        """ Get tags associated with nodes that are direct children of
-        the ElementTree root.
+        """ Get tags, as a list of strings, associated with nodes that are
+        direct children of the ElementTree root.
         """
         unique = self.get_unique_tags()
         top_level_nodes = [i for i in unique if self.root.find(f'./{i}') is not None]
@@ -198,7 +195,7 @@ class AppleHealthExtraction(object):
         """
         Args:
             date_start (datetime): Start date of date range as datetime object.
-            full_node_list (list):
+            full_node_list (list): List of all nodes.
 
         Returns:
             A list of nodes with their startDate attribute >= date_start.
@@ -263,6 +260,9 @@ class AppleHealthExtraction(object):
                               subtables will written to the SQL database file.
                               And their list within table_queue will be reset
                               to an empty list. Default is 5000.
+
+        Returns:
+            None
         """
 
         # Initialize queue to dataframe_to_sql() function call
@@ -415,6 +415,9 @@ class AppleHealthExtraction(object):
                               subtables will written to the SQL database file.
                               And their list within table_queue will be reset
                               to an empty list. Default is 5000.
+
+        Returns:
+            None
         """
         val_err_msg = "Have not implemented support for node child of type {0}"
         # Queue of every list of attributes to write to db file for every nth
@@ -537,6 +540,9 @@ class AppleHealthExtraction(object):
             table_name (str): Name of the table to create in the database. If
                               an empty string is passed in (the default), the
                               table name is the tag.
+
+        Returns:
+            None.
         """
         if not rootnode:
             rootnode = self.root
@@ -622,6 +628,9 @@ class AppleHealthExtraction(object):
         Args:
             df (pd.DataFrame): DataFrame to feed into SQL table.
             table_name (str): Name of the table to be created.
+
+        Returns:
+            None.
         """
         if self.verbose:
             msg = "Writing to database {0} entries for table {1}......"
@@ -668,7 +677,7 @@ class AppleHealthExtraction(object):
 
     def extract_data(self):
         """ Extracts to various tables information from nodes of the
-        ElementTree.
+        ElementTree. Returns nothing.
 
         The resulting tables are stored under a database .db file, the name of
         which is specified by the class variable `self.db_name`.
@@ -706,7 +715,7 @@ class AppleHealthExtraction(object):
     def check_results(self):
         """ Compares table counts and table names between what is stored
         in the created database and what is stored in memory. Logs
-        discrepancies as errors.
+        discrepancies as errors. Returns nothing.
         """
         print_error_msgs = []
 
