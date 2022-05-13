@@ -6,16 +6,15 @@ from dash import dcc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly import colors
-from pandas import cut, IntervalIndex, Interval
+from pandas import cut, IntervalIndex
 from numpy import arange
 from math import floor, ceil
 from dashboard.assets.custom_themes import custom_theme1
-from utils import (get_latest_daily_agg,
-                   colmapper, get_unit_from_string,
-                   )
+from dashboard.index import daily_data
+from utils import colmapper, get_unit_from_string
 
 # Load dataset and get column names
-data = get_latest_daily_agg()
+data = daily_data  # Note: ensure this doesn't get modified
 
 # Get column names
 indoor_workout = colmapper('Indoor Workout', data.columns)

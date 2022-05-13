@@ -10,13 +10,10 @@ The template for stats summaries.
 import dash_bootstrap_components as dbc
 from dash import html
 from collections import OrderedDict
-from utils import (get_latest_weekly_agg,
-                   get_latest_monthly_agg,
-                   format_pace,
+from dashboard.index import (weekly_data,
+                             monthly_data)
+from utils import (format_pace,
                    colmapper)
-
-weekly_data = get_latest_weekly_agg()
-monthly_data = get_latest_monthly_agg()
 
 
 def get_stat_over(time_period, metric, on_date):
@@ -34,10 +31,10 @@ def get_stat_over(time_period, metric, on_date):
         If metric = None, returns a Series.
     """
     if time_period == 'week':
-        data = weekly_data
+        data = weekly_data.copy()
         dfiltered = data[data.index == on_date]
     elif time_period in ['year', 'month']:
-        data = monthly_data
+        data = monthly_data.copy()
         dfiltered = data[data.index.year == on_date.year]
 
         if time_period == 'month':

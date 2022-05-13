@@ -9,10 +9,9 @@ from dash import dcc
 from plotly.subplots import make_subplots
 from pandas import Timestamp, Timedelta
 from dashboard.layout.graphing import simple_time_series
-from utils import (get_latest_daily_agg,
-                   get_latest_weekly_agg,
-                   colmapper
-                   )
+from dashboard.index import (daily_data,
+                             weekly_data)
+from utils import colmapper
 
 
 # --- [Y-VALUE] OVER SELECTED WEEK --- #
@@ -42,11 +41,11 @@ def build_week_ts_subplot(input_datestring, ycol=None, ycol_pattern=None):
     sub = make_subplots(rows=1, cols=1)
 
     if input_datestring == 'most recent':
-        start_date = get_latest_weekly_agg().index[-1]
+        start_date = weekly_data.index[-1]
     else:
         start_date = Timestamp(input_datestring)
 
-    data = get_latest_daily_agg()  # Load entire daily dataset
+    data = daily_data.copy()  # Load entire daily dataset
 
     if ycol_pattern:
         ycol = colmapper(ycol_pattern, data.columns.tolist())

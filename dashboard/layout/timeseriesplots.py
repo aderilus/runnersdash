@@ -1,6 +1,9 @@
 """ Graph building routine(s) and dcc components associated with
 main page time-series graphs.
 """
+from dashboard.index import (daily_data,
+                             weekly_data,
+                             monthly_data)
 from dashboard.assets.custom_themes import custom_theme1
 from dashboard.layout.graphing import add_error_bands
 import plotly.graph_objects as go
@@ -11,10 +14,6 @@ from plotly.subplots import make_subplots
 
 
 SUBPLOT_SPACING_V = 0.07
-
-daily_data = utils.get_latest_daily_agg()
-weekly_data = utils.get_latest_weekly_agg()
-monthly_data = utils.get_latest_monthly_agg()
 
 
 # --- dcc COMPONENTS --- #

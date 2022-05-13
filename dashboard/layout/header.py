@@ -1,11 +1,9 @@
-from dash import html
-from utils import get_column_extremas, get_latest_daily_agg
+# from dash import html
+from dashboard.index import (resampled_runs,
+                             min_year,
+                             max_year)
 import dash_bootstrap_components as dbc
 
-daily_data = get_latest_daily_agg()
-min_date, max_date = get_column_extremas(daily_data, 'index')
-min_year = min_date.year
-max_year = max_date.year
 
 navbar = dbc.NavbarSimple(
     children=[

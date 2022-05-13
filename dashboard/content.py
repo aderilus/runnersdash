@@ -2,7 +2,6 @@
 """
 
 from dash import html, dcc
-
 from dashboard.index import app
 from dashboard.pages import home
 
@@ -16,6 +15,7 @@ from dashboard.layout.callbacks import (nav_callbacks,
 app.layout = html.Div(
     children=[
         dcc.Location(id="url", refresh=False),
+        dcc.Store(id="data-year-range", storage_type='session'),
         html.Div(id="page-content"),
     ]
 )

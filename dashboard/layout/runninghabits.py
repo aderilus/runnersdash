@@ -8,10 +8,9 @@ from plotly.subplots import make_subplots
 from math import ceil
 from pandas import NamedAgg
 from dashboard.assets.custom_themes import custom_theme1
+from dashboard.index import resampled_runs, running_log
 from dashboard.layout.graphing import add_error_bands
 from utils import (get_column_extremas,
-                   get_running_logs,
-                   get_resampled_runs,
                    colmapper,
                    get_unit_from_string)
 
@@ -44,7 +43,7 @@ def build_dow_histogram(yr):
         first row is the histogram.
     """
 
-    data = get_running_logs()
+    data = running_log
     # Filter data
     dfiltered = data[data['startDate'].dt.year == yr].copy() if type(yr) == int else data.copy()
 
@@ -139,7 +138,7 @@ def build_tod_histogram(yr):
     """
 
     # Load data
-    data = get_running_logs()
+    data = running_log
     # Filter data
     dfiltered = data[data['startDate'].dt.year == yr].copy() if type(yr) == int else data.copy()
 
@@ -232,10 +231,8 @@ def build_runmetric_histogram(yr):
     Returns:
         A plotly.graph_objects instance. This figure is a 3-column plot.
     """
-    # Load data
-    data = get_resampled_runs()
-    # Filter out empty rows (days with no runs)
-    data = data[data['startDate'].notna()]
+    # Filter resampled runs - remove empty rows (days with no runs)
+    data = resampled_runs[resampled_runs['startDate'].notna()]
     # Filter data by selected year
     dfiltered = data[data.index.year == yr].copy() if type(yr) == int else data.copy()
 
