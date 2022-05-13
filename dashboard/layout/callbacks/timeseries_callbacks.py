@@ -1,9 +1,10 @@
+""" Callback definitions associated with time-series plots (timeseriesplots.py
+and timeseriessubplots.py).
+"""
 from dash.dependencies import Input, Output, State
 from plotly.io import write_image
 from dashboard.index import app
 from pathlib import Path
-from datetime import datetime
-from utils import colmapper
 from dashboard.layout.timeseriesplots import (build_agg_binned_across_year,
                                               )
 from dashboard.layout.timeseriessubplots import build_week_ts_subplot
@@ -18,17 +19,6 @@ def update_main_time_series_title(in_year, monthly_toggled):
     if monthly_toggled:
         return f"Monthly running data across {in_year}"
     return f"Weekly running data across {in_year}"
-
-
-# @app.callback(
-#     Output("toggle-daily-overlay", "is_open"),
-#     [Input("time-bin-toggle", "value")],
-#     [State("toggle-daily-overlay", "is_open")]
-# )
-# def toggle_daily_overlay(monthly_toggled, is_open):
-#     if not monthly_toggled:
-#         return False
-#     return not is_open
 
 
 @app.callback(
@@ -90,7 +80,7 @@ def download_weekly_time_series(svg_nclick, png_nclick, fig):
 
 
 # --- MAIN TIME SERIES SUBPLOTS --- #
-# Find associated functions and objects at timeseries_subplots.py
+# Find associated functions and objects at timeseriessubplots.py
 
 @app.callback(
     Output("week-ts-subplot", "figure"),
