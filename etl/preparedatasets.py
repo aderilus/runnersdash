@@ -937,9 +937,9 @@ if __name__ == '__main__':
 
     dbpath = args['open_db']
 
-    # data = DatasetPrep(dbpath, workout_tables=args['workouts'],
-    #                    record_tables=args['records'],
-    #                    verbose=True, testing=False)
+    data = DatasetPrep(dbpath, workout_tables=args['workouts'],
+                       record_tables=args['records'],
+                       verbose=True, testing=False)
 
     # Do not include 'HeartRate' in aggregates.
     records_to_agg = args['records'].copy()
