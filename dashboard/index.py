@@ -10,7 +10,7 @@ import dash_bootstrap_components as dbc
 # --- GLOBAL VARIABLES --- #
 # Load datasets
 daily_data = get_latest_daily_agg()
-weekly_data = get_latest_weekly_agg()
+weekly_data = get_latest_weekly_agg(verbose=True)
 monthly_data = get_latest_monthly_agg()
 resampled_runs = get_resampled_runs()
 running_log = get_running_logs()
