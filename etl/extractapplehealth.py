@@ -3,7 +3,9 @@
                            into a database.
 
 Usage:
-    $ python extractapplehealth.py OPTIONAL[-o path/to/export.xml --append --version]
+    $ python etl/extractapplehealth.py OPTIONAL[-o path/to/export.xml
+                                                --append
+                                                --version]
 
     If --append (bool) is passed in, script will find the latest version of a
     db file within the 'data/' subdirectory and append to the database any data
@@ -35,7 +37,7 @@ Things to note:
 
 __version__ = '2.5'
 
-import argparse
+# import argparse
 import os
 import time
 import pandas as pd
@@ -48,6 +50,12 @@ from pathlib import Path
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
+
+try:  # running as a module
+    from . import setup
+except ImportError:  # running as a script
+    import setup
+
 
 # Constants
 CURRENT_TIME = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -115,14 +123,14 @@ class AppleHealthExtraction(object):
         self.datestring = self.exportdatetime.strftime("%Y%m%d")
 
         # Database file name
-        dbpath = Path(Path.cwd(), "data/")
+        self.dbpath = Path(Path.cwd(), "data/")
         extension = '.db'
 
-        if self.append_to_existing_db and list(dbpath.glob(f"*{extension}")):
+        if self.append_to_existing_db and list(self.dbpath.glob(f"*{extension}")):
             # If append_from is passed in and there are db files inside
             # the 'data/' subdirectory, get the path of the latest
             # available db file in that folder
-            self.db_name = list(sorted(dbpath.glob(f"*{extension}")))[-1]
+            self.db_name = list(sorted(self.dbpath.glob(f"*{extension}")))[-1]
             self.datestring = str(self.db_name).split('/')[-1][:8]
             write_mode = 'Appending'
         else:
@@ -130,21 +138,21 @@ class AppleHealthExtraction(object):
             self.append_to_existing_db = False
             write_mode = 'Writing'
 
-            if not os.path.exists(dbpath):
-                os.makedirs(dbpath)
+            if not os.path.exists(self.dbpath):
+                os.makedirs(self.dbpath)
             if self.append_ver:
                 dbsuffix = '_ver{0}'.format(__version__)
             else:
                 dbsuffix = ''
             dbprefix = self.datestring + '_applehealth' + dbsuffix
-            self.db_name = os.path.join(dbpath, dbprefix + extension)
+            self.db_name = os.path.join(self.dbpath, dbprefix + extension)
 
             # If file already exists, rename the new db to be created
             if os.path.exists(self.db_name):
                 counter = 1
                 while os.path.exists(self.db_name):
                     count_fix = "_{}".format(counter)
-                    self.db_name = os.path.join(dbpath, dbprefix + count_fix + extension)
+                    self.db_name = os.path.join(self.dbpath, dbprefix + count_fix + extension)
                     counter += 1
 
         # SQLAlchemy engine
@@ -811,32 +819,16 @@ class AppleHealthExtraction(object):
 
 if __name__ == '__main__':
 
-    # Argument parser
-    parser = argparse.ArgumentParser(description='Extracts data from exported Apple Health file `export.xml` and stores it in a database inside a \
-                                                 folder named `data/`. If path to `export.xml` is not passed in, will search for an export.xml \
-                                                 in a folder `apple_health_export/` within the current working directory.',
-                                     )
-    parser.add_argument('-o', '--open-file',
-                        type=str, nargs='?', required=False,
-                        help='the/path/to/export.xml.')
-    parser.add_argument('-a', '--append',
-                        type=bool, required=False, default=False,
-                        action=argparse.BooleanOptionalAction,
-                        help="Toggle whether to append new data to the latest db file.")
-    parser.add_argument('-v', '--version',
-                        type=bool, required=False, default=False,
-                        action=argparse.BooleanOptionalAction,
-                        help="Toggle whether to append script version number to database file name.")
-    args = vars(parser.parse_args())
+    args = vars(setup.eah_parser.parse_args())
 
     if args['open_file'] is None:
         xml_path = os.path.join(os.getcwd(), "apple_health_export", "export.xml")
     else:
         xml_path = args['open_file']
-        if xml_path[0] == '/':
+        if xml_path[0] == '~':
             xml_path = os.path.join(os.getcwd(), xml_path[1:])
 
     tree = AppleHealthExtraction(xml_path, append_to_existing_db=args['append'],
-                                 exclude=['Correlation', 'Audiogram'],
+                                 exclude=setup.eah_tables_to_exclude,
                                  append_ver=args['version'])
     tree.extract_data()

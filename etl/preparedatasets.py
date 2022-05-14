@@ -9,7 +9,7 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         5. "[date]_Running.csv"
 
 USAGE:
-    $ python preparedatasets.py -o path/to/db/file OPTIONAL[-w -r]
+    $ python etl/preparedatasets.py -o path/to/db/file OPTIONAL[-w -r]
 
     OPTIONAL ARGUMENTS:
     -w or --workouts: List (space-separated) of table names (as it appears)
@@ -24,8 +24,8 @@ USAGE:
     -r or --records: List (space-separated) of table names of type
         Record to process.
         Default: MenstrualFlow RestingHeartRate VO2Max BodyMass
-                 HeartRateVariabilitySDNN HeartRate StepCount'
-                 RespiratoryRate' BloodPressureDiastolic
+                 HeartRateVariabilitySDNN HeartRate StepCount
+                 RespiratoryRate BloodPressureDiastolic
                  BloodPressureSystolic
 
         Example Record tables:
@@ -36,20 +36,20 @@ USAGE:
 
 __version__ = '1.5'
 
-import argparse
+
+# import argparse
 import re
 import pandas as pd
-import healthdatabase as hd
-from settings import (AGG_D_SUFFIX,
-                      AGG_W_SUFFIX,
-                      AGG_M_SUFFIX,
-                      RESAMPLE_D_SUFFIX,
-                      PD_OUTPUT_PATH,
-                      )
+import sys
 from pathlib import Path
-from utils import (extract_export_date,
-                   get_unit_from_string,
-                   colmapper)
+try:  # when importing preparedatasets as a module in exporthealthdata.py
+    from . import setup
+    from . import healthdatabase as hd
+except ImportError:  # when running preparedatasets as a script
+    import setup
+    import healthdatabase as hd
+from runnersdash import settings
+from runnersdash import utils
 
 
 # --- HELPER FUNCTIONS --- #
@@ -213,7 +213,7 @@ def get_col_dtype(column_name):
     """ Returns the column dtype of column_name as a string.
     """
     col = column_name.lower().replace(' ', '')
-    unit = get_unit_from_string(column_name)
+    unit = utils.get_unit_from_string(column_name)
     special_case = {'indoorworkout': 'float64',
                     'menstrualcyclestart': 'int64',
                     'workoutevent': bool,
@@ -279,7 +279,7 @@ class DatasetPrep(object):
         if self.verbose:
             print(f'Reading from {self.DB_FILE}')
 
-        self.DB_EXPORT_DATE = extract_export_date(database_path)
+        self.DB_EXPORT_DATE = utils.extract_export_date(database_path)
 
         # Formatting
         self.DATE_FORMAT = "%Y-%m-%d %H:%M:%S %z"
@@ -334,10 +334,10 @@ class DatasetPrep(object):
         Returns:
             None.
         """
-        file_suffix_map = {'d-agg': AGG_D_SUFFIX,
-                           'w-agg': AGG_W_SUFFIX,
-                           'm-agg': AGG_M_SUFFIX,
-                           'd-resample': RESAMPLE_D_SUFFIX,
+        file_suffix_map = {'d-agg': settings.AGG_D_SUFFIX,
+                           'w-agg': settings.AGG_W_SUFFIX,
+                           'm-agg': settings.AGG_M_SUFFIX,
+                           'd-resample': settings.RESAMPLE_D_SUFFIX,
                            'as-is': '',
                            }
 
@@ -345,7 +345,7 @@ class DatasetPrep(object):
             raise ValueError(f"write_to_csv() takes in one of the following: \
                              ['d-agg', 'w-agg', 'm-agg', 'd-resample']")
 
-        file_prefix = f"{PD_OUTPUT_PATH}/{self.DB_EXPORT_DATE}_"
+        file_prefix = f"{settings.PD_OUTPUT_PATH}/{self.DB_EXPORT_DATE}_"
         if tablename:
             file_prefix = file_prefix + f'{tablename}'
             if file_type != 'as-is':
@@ -562,8 +562,8 @@ class DatasetPrep(object):
             duration_col = durations_filter[0]
             distance_col = distances_filter[0]
 
-            duration_unit = get_unit_from_string(duration_col)
-            distance_unit = get_unit_from_string(distance_col)
+            duration_unit = utils.get_unit_from_string(duration_col)
+            distance_unit = utils.get_unit_from_string(distance_col)
             pace_unit = f'{duration_unit}/{distance_unit}'
 
             pace_col_name = f'Avg Pace ({pace_unit})'
@@ -707,7 +707,7 @@ class DatasetPrep(object):
         if table_name in self.WORKOUT_TABLES:
             cols_to_drop = ['startDate']
             try:
-                indoor_column = colmapper('Indoor Workout', daily.columns)
+                indoor_column = utils.colmapper('Indoor Workout', daily.columns)
                 cols_to_drop.append(indoor_column)
             except ValueError:
                 pass
@@ -875,7 +875,7 @@ class DatasetPrep(object):
 
         if write_to_file:
             freq_init = freq[0]
-            data.write_to_csv(combined, file_type=f'{freq_init}-agg',
+            self.write_to_csv(combined, file_type=f'{freq_init}-agg',
                               verbose=True)
 
         return combined
@@ -913,7 +913,7 @@ class DatasetPrep(object):
 
         # Write to file
         if write_to_file:
-            data.write_to_csv(resampled, file_type=f"{freq[0]}-resample",
+            self.write_to_csv(resampled, file_type=f"{freq[0]}-resample",
                               tablename=workout_name,
                               verbose=True)
 
@@ -921,34 +921,25 @@ class DatasetPrep(object):
 
 
 if __name__ == '__main__':
-    # Default tables
-    workout_tables = ['Running']
-    record_tables = ['MenstrualFlow', 'RestingHeartRate', 'VO2Max', 'BodyMass',
-                     'HeartRateVariabilitySDNN', 'HeartRate', 'StepCount',
-                     'RespiratoryRate', 'BloodPressureDiastolic',
-                     'BloodPressureSystolic'
-                     ]
 
-    parser = argparse.ArgumentParser(description=""
-                                     )
-    parser.add_argument('-o', '--open-db',
-                        type=str, nargs='?', required=True,
-                        help='The path to health database file \
-                             `*_applehealth.db`')
-    parser.add_argument('-w', '--workouts',
-                        default=workout_tables,
-                        type=str, nargs='+', required=False)
-    parser.add_argument('-r', '--records',
-                        default=record_tables,
-                        type=str, nargs='+', required=False)
+    # parser = argparse.ArgumentParser(description=""
+    #                                  )
 
-    args = vars(parser.parse_args())
+    # pd_open_db_kwargs = dict(type=str, nargs='?', required=True,
+    #                          help='The path to health database file \
+    #                               `*_applehealth.db`')
+
+    # parser.add_argument('-o', '--open-db', **pd_open_db_kwargs)
+    # parser.add_argument('-w', '--workouts', **setup.pd_workout_kwargs)
+    # parser.add_argument('-r', '--records', **setup.pd_record_kwargs)
+
+    args = vars(setup.pd_parser.parse_args())
 
     dbpath = args['open_db']
 
-    data = DatasetPrep(dbpath, workout_tables=args['workouts'],
-                       record_tables=args['records'],
-                       verbose=True, testing=False)
+    # data = DatasetPrep(dbpath, workout_tables=args['workouts'],
+    #                    record_tables=args['records'],
+    #                    verbose=True, testing=False)
 
     # Do not include 'HeartRate' in aggregates.
     records_to_agg = args['records'].copy()
