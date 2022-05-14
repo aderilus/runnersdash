@@ -28,9 +28,9 @@ def get_project_root(test=False):
 
 def extract_export_date(db_path):
     """ Returns export date of the database file as a string formatted
-        as "YYYYmmdd".
+        as "YYYYmmdd". Parameter 'db_path' can be PosixPath or str type.
     """
-    split_db_path = db_path.split('/')
+    split_db_path = str(db_path).split('/')
     if len(split_db_path) > 1:
         export_date = split_db_path[-1].split('_')[0]
     else:

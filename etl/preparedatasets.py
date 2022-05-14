@@ -269,6 +269,8 @@ class DatasetPrep(object):
         self.WORKOUT_TABLES = workout_tables
         self.RECORD_TABLES = record_tables
 
+        # Cast to string in the case a PosixPath is passed in
+        database_path = str(database_path)
         if database_path[0] == '/':
             # File path is an absolute path (as string)
             self.DB_FILE = database_path
