@@ -9,7 +9,7 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         5. "[date]_Running.csv"
 
 USAGE:
-    $ python etl/preparedatasets.py -o path/to/db/file OPTIONAL[-w -r]
+    $ python etl/preparedatasets.py -o path/to/db/file.db [-w --workouts] [-r --records]
 
     OPTIONAL ARGUMENTS:
     -w or --workouts: List (space-separated) of table names (as it appears)
@@ -24,7 +24,7 @@ USAGE:
     -r or --records: List (space-separated) of table names of type
         Record to process.
         Default: MenstrualFlow RestingHeartRate VO2Max BodyMass
-                 HeartRateVariabilitySDNN HeartRate StepCount
+                 HeartRateVariabilitySDNN StepCount
                  RespiratoryRate BloodPressureDiastolic
                  BloodPressureSystolic
 
