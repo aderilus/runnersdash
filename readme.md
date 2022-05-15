@@ -9,14 +9,16 @@
     - [1. Extraction](#1-extract-store-and-clean-apple-health-data)
         - [More details](#in-detail-usage-of-exporthealthdatapy)
     - [2. Dashboard](#2-launch-dashboard)
-
+- [A note on data privacy](#a-note-regarding-data-privacy)
 
 ## Project goals
-- Extract health data from exported Apple Health (XML) file and store them on a local database.
-- Use Plotly Dash to generate a dashboard visualizing running and other health data.
+- Create an interactive dashboard to visualize running data alongside other health metrics, and be able to do some exploratory data analysis with personal health data.
+    - Extract health data from exported Apple Health (XML) file and store them on a local database.
+    - Use Plotly Dash to generate a dashboard.
 
 ## Implemented visualizations
 1. Time series plots across one year, binned weekly and monthly.
+```
     - Total Distance (sum)
     - Total Duration (sum)
     - Total Energy Burned (mean)
@@ -31,13 +33,16 @@
     - Avg. Blood Pressure Diastolic
     - Avg. Blood Pressure Systolic
     - Avg. Menstrual Flow
-1. Total distance run per day across one week.
-1. Histograms (number of runs across a year/years) and a line plot of their associated avg. distance per run.
+```
+2. Total distance run per day across one week.
+3. Histograms (number of runs across a year/years) and a line plot of their associated avg. distance per run.
+```
     - Day of the Week
     - Hour of run start time
     - Total run distance
     - Daily total distance, duration, avg METs
-1. Various running/health metrics against temperature and humidity (for days with outdoor runs).
+```
+4. Various running/health metrics against temperature and humidity (for days with outdoor runs).
 
 
 ## Installation
@@ -79,9 +84,7 @@ Relevant file(s): `exporthealthdata.py`
     python exporthealthdata.py [-o --open-file </path/to/export.xml>]
                                  [-a --append] [-v --version]
                                  [-w --workouts] [-r --records]
-    ```
 
-    ```
     OPTIONAL ARGUMENTS:
 
     -o --open-export </path/to/export.xml> : 
@@ -136,3 +139,13 @@ Launch the Dash app with the following:
 ```
 python app.py
 ```
+
+## A note regarding data privacy
+
+All health data is stored locally (and remains local).
+
+
+<!--- 
+TO-DO:
+1. To be implemented/roadmap section
+--->
