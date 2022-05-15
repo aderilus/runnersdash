@@ -1,3 +1,94 @@
+""" exporthealthdata.py: Wrapper function for extraction and processing
+routines in preparation for visualization through Plotly Dash.
+
+USAGE:
+    $ python exporthealthdata.py [-o --open-file </path/to/export.xml>]
+                                 [-a --append] [-v --version]
+                                 [-w --workouts] [-r --records]
+
+    OPTIONAL ARGUMENTS:
+
+    -o --open-export </path/to/export.xml> : Determine export.xml file to read.
+
+    -a --append (bool) : If passed in, script will find the latest version of a
+        db file within the 'data/' subdirectory and append to the database any
+        data with 'startDate' >= latest export date of the .db file.
+        For use if you have previous exports already stored in a database and
+        just need to add new data entries since your last export.
+        Default is --no-append.
+
+    -v --version (bool) : If true, the version number of extractapplehealth.py
+        is appended to the name of the resulting database .db file.
+        Default is --no-version.
+
+    -w --workouts <list of Workout names> : List (space-separated) of table
+        names (as it appears) in the database file of type Workout to process.
+
+        Default: Running
+
+        Example Workout tables:
+            - Running                           - Other
+            - Barre                             - Skiing
+            - FunctionalStrengthTraining        - Walking
+
+    -r --records <list of Record names> : List (space-separated) of table names
+        of type Record to process.
+
+        Default: MenstrualFlow RestingHeartRate VO2Max BodyMass
+                 HeartRateVariabilitySDNN StepCount
+                 RespiratoryRate BloodPressureDiastolic
+                 BloodPressureSystolic
+
+        Example Record tables:
+            - HeartRateVariabilitySDNN
+            - VO2Max
+            - StepCount
+
+
+COMPONENTS:
+
+1) [extractapplehealth.py] Extracts and stores (as a database) Apple Health
+XML data.
+
+    Output(s):
+        1. A database (.db) file under subdirectory `data/` containing
+        all health data organized into tables, grouped by their
+        identifier.
+
+        Naming scheme: `YYYYmmdd_applehealth.db`
+
+        if --no-append: The file name will include the date corresponding
+        to the given export date in the specific `export.xml` file
+        it was extracted from, and if passed in the, version number of
+        extractapplehealth.py
+
+        if --append: The file name is the latest available db file prior to
+        current export.
+
+        2. A log file in the logs/ subdirectory, with name formatted as
+            "db_{1}_run{2}_{3}.log",
+            where:
+                {1} is the export date of the Apple Health export as "YYYYmmdd"
+                {2} is the script run date as "YYYYmmdd"
+                {3} is the script run date (time) as "HHMMSS".
+
+2) [preparedatasets.py] Collects certain health and fitness metrics from the
+database of Health data (output of `extractapplehealth.py`) and runs data
+processing routines, the results of which are in the form of a set of CSV files
+output by the script:
+
+    Output(s):
+        1. "{date}_dailyAggregate.csv" - aggregated daily
+        2. "{date}_weeklyAggregate.csv" - aggregated weekly
+        3. "{date}_monthlyAggregate.csv" - aggregated monthly
+        4. "{date}_Running_resampledDaily.csv" - running data resampled daily
+        5. "{date}_Running.csv" - entries to table 'Running' as is, no
+                                  aggregation or resampling.
+
+        where 'date' is the export date of the corresponding database formatted
+        as 'YYYYmmdd'.
+"""
+
 import argparse
 import os
 from etl import setup
