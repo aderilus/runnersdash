@@ -5,7 +5,7 @@ import argparse
 # Default tables to prepare
 workout_tables = ['Running']
 record_tables = ['MenstrualFlow', 'RestingHeartRate', 'VO2Max', 'BodyMass',
-                 'HeartRateVariabilitySDNN', 'HeartRate', 'StepCount',
+                 'HeartRateVariabilitySDNN', 'StepCount',
                  'RespiratoryRate', 'BloodPressureDiastolic',
                  'BloodPressureSystolic'
                  ]
@@ -31,7 +31,7 @@ eah_parser = argparse.ArgumentParser(description='Extracts data from exported Ap
                                                 in a folder `apple_health_export/` within the current working directory.',
                                      )
 
-eah_parser.add_argument('-o', '--open-file', **eah_open_file_args)
+eah_parser.add_argument('-o', '--open-export', **eah_open_file_args)
 eah_parser.add_argument('-a', '--append', **eah_append_kwargs)
 eah_parser.add_argument('-v', '--version', **eah_append_ver_kwargs)
 
