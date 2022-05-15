@@ -144,8 +144,8 @@ python app.py
 
 All health data is stored locally (and remains local).
 
+## Future implementations?
 
-<!--- 
-TO-DO:
-1. To be implemented/roadmap section
---->
+1. 'Sandbox' page with customizeable and extensive graph options and all available metrics to plot.
+1. Compatibility with Google Fit and Samsung Health datasets?
+1. A heatmap-view page, with calendar days on the y-axis and months of the year on the x-axis. Each cell represents that day's data. Clicking on the cell will produce visualization of that day's (assuming there is only one run/day) route and other run details (temp, humidity, plots of heart rate during run, etc.). 
