@@ -2,11 +2,14 @@
 preparedatasets.py: Imports and formats SQL tables as DataFrames for
                     visualization and analysis.
                     Outputs, stored in 'data' sub-directory:
-                        1. "[date]_dailyAggregate.csv"
-                        2. "[date]_weeklyAggregate.csv"
-                        3. "[date]_monthlyAggregate.csv"
-                        4. "[date]_Running_resampledDaily.csv"
-                        5. "[date]_Running.csv"
+                        1. "{date}_dailyAggregate.csv"
+                        2. "{date}_weeklyAggregate.csv"
+                        3. "{date}_monthlyAggregate.csv"
+                        4. "{date}_Running_resampledDaily.csv"
+                        5. "{date}_Running.csv"
+
+                    where 'date' is the export date of the corresponding
+                    database formatted as 'YYYYmmdd'.
 
 USAGE:
     $ python etl/preparedatasets.py -o path/to/db/file.db [-w --workouts]
