@@ -9,7 +9,8 @@ preparedatasets.py: Imports and formats SQL tables as DataFrames for
                         5. "[date]_Running.csv"
 
 USAGE:
-    $ python etl/preparedatasets.py -o path/to/db/file.db [-w --workouts] [-r --records]
+    $ python etl/preparedatasets.py -o path/to/db/file.db [-w --workouts]
+                                                          [-r --records]
 
     OPTIONAL ARGUMENTS:
     -w or --workouts: List (space-separated) of table names (as it appears)
