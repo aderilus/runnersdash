@@ -3,9 +3,8 @@
                            into a database.
 
 Usage:
-    $ python etl/extractapplehealth.py OPTIONAL[-o path/to/export.xml
-                                                --append
-                                                --version]
+    $ python etl/extractapplehealth.py [-o path/to/export.xml] [-a --append]
+                                       [--version]
 
     If --append (bool) is passed in, script will find the latest version of a
     db file within the 'data/' subdirectory and append to the database any data
@@ -30,7 +29,7 @@ Output(s):
         "db_{exportdate}_run{script run date in %Y%m%d}_{%H%M%S}.log"
 
 Things to note:
-- Last tested on Apr. 2022 Apple Health data.
+- Last tested on May 2022 Apple Health data.
 - This version does not extract elements with tag = "Correlation", "Audiogram",
   or "ClinicalRecord".
 """
@@ -821,10 +820,10 @@ if __name__ == '__main__':
 
     args = vars(setup.eah_parser.parse_args())
 
-    if args['open_file'] is None:
+    if args['open_export'] is None:
         xml_path = os.path.join(os.getcwd(), "apple_health_export", "export.xml")
     else:
-        xml_path = args['open_file']
+        xml_path = args['open_export']
         if xml_path[0] == '~':
             xml_path = os.path.join(os.getcwd(), xml_path[1:])
 
